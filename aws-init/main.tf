@@ -1,24 +1,27 @@
-
-
-locals {
-	root_name             = "terra-arch-remote-state"
-	terraform-role-name   = "${local.root_name}"
-    table_name            = "${local.root_name}-locks"
-    bucket_name           = "${local.root_name}-${data.aws_caller_identity.current.account_id}"
-   
-    region                = "us-east-2"
-    home-server-user-name = "home-server-builder"
-   
-}
-
 terraform {
   
   required_providers {
-    aws = ">= 3.1.0"    
+    aws = ">= 3.1.0"  
+    local = ">= 2.1.0"
+    template = ">= 2.2.0"  
   }
   
   required_version = "~> 1.1.2"
 }
+
+
+locals {
+	root_name             = "terra-arch-remote-state"
+	terraform-policy-name = "${local.root_name}"
+    table_name            = "${local.root_name}-locks"
+    bucket_name           = "${local.root_name}-${data.aws_caller_identity.current.account_id}"
+   
+    region                = "us-east-2"
+    home-server-user-name = "server-builder"
+    
+   
+}
+
 
 variable "access_key" { # NOTE: this is the admin key
 }
@@ -52,20 +55,7 @@ resource "aws_s3_bucket" "tf-remote-state" {
   	"terraform-arch":"foundational"
   }
 }
-data "aws_iam_policy_document" "iam-role-policy" {
-  statement {
-    actions   = ["s3:ListBucket"]
-    resources = ["arn:aws:s3:::${local.bucket_name}"]
-  }
-  statement {
-    actions   = ["s3:GetObject", "s3:PutObject"]
-    resources = ["arn:aws:s3:::${local.bucket_name}/*"]
-  }
-  statement {
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
-    resources = ["arn:aws:dynamodb:*:*:table/${local.table_name}"]
-  }
-}
+
 resource "aws_dynamodb_table" "tf-remote-state" {
   name         = local.table_name
   hash_key     = "LockID"
@@ -80,21 +70,89 @@ resource "aws_dynamodb_table" "tf-remote-state" {
 }
 
 
-resource "aws_iam_role" "terraform-role" {
-  name               = local.terraform-role-name
-  description        = "Allows access to all Terraform workspaces"
-  assume_role_policy = data.aws_iam_policy_document.backend-assume-role.json
+resource "aws_iam_role" "home-server-role" {
+  name               = "${local.home-server-user-name}-role"
+  description        = "Allows access to build servers using terraform"
+  assume_role_policy = data.aws_iam_policy_document.principal-identifiers.json
   tags = {
   	"terraform-arch":"foundational"
   }
 }
-resource "aws_iam_role_policy" "terraform-role" {
-  name   = local.terraform-role-name
-  policy = data.aws_iam_policy_document.iam-role-policy.json
-  role   = local.terraform-role-name
-  depends_on = [aws_iam_role.terraform-role]
+
+///////////////////////////////////////////////////////////////////
+
+data "aws_iam_policy_document" "terraform-state-role-policy" {
+  statement {
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${local.bucket_name}"]
+  }
+  statement {
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["arn:aws:s3:::${local.bucket_name}/*"]
+  }
+  statement {
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
+    resources = ["arn:aws:dynamodb:*:*:table/${local.table_name}"]
+  }
 }
-data "aws_iam_policy_document" "backend-assume-role" {
+resource "aws_iam_role_policy" "home-server-terraform-policy" {
+  name   = "${local.terraform-policy-name}-policy"
+  policy = data.aws_iam_policy_document.terraform-state-role-policy.json
+  role   = "${local.home-server-user-name}-role"
+  depends_on = [aws_iam_role.home-server-role]
+}
+
+/////////////////////////////////////////////////////////////////
+
+data "aws_iam_policy_document" "packer-role-policy" {
+  statement {
+    actions   = ["ec2:AttachVolume",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:CopyImage",
+                "ec2:CreateImage",
+                "ec2:CreateKeypair",
+                "ec2:CreateSecurityGroup",
+                "ec2:CreateSnapshot",
+                "ec2:CreateTags",
+                "ec2:CreateVolume",
+                "ec2:DeleteKeyPair",
+                "ec2:DeleteSecurityGroup",
+                "ec2:DeleteSnapshot",
+                "ec2:DeleteVolume",
+                "ec2:DeregisterImage",
+                "ec2:DescribeImageAttribute",
+                "ec2:DescribeImages",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+                "ec2:DescribeRegions",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeTags",
+                "ec2:DescribeVolumes",
+                "ec2:DetachVolume",
+                "ec2:GetPasswordData",
+                "ec2:ModifyImageAttribute",
+                "ec2:ModifyInstanceAttribute",
+                "ec2:ModifySnapshotAttribute",
+                "ec2:RegisterImage",
+                "ec2:RunInstances",
+                "ec2:StopInstances",
+                "ec2:TerminateInstances"]
+    resources = ["*"]
+  }
+
+}
+resource "aws_iam_role_policy" "home-server-packer-policy" {
+  name   = "${local.home-server-user-name}-packer-policy"
+  policy = data.aws_iam_policy_document.packer-role-policy.json
+  role   = "${local.home-server-user-name}-role"
+  depends_on = [aws_iam_role.home-server-role]
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+data "aws_iam_policy_document" "principal-identifiers" {
   statement {
     actions = ["sts:AssumeRole"]
     principals {
@@ -110,19 +168,41 @@ resource "aws_iam_user" "home-server-user" {
   	"terraform-arch":"foundational"
   }
 }
+resource "aws_iam_user_policy" "home-server-assume-role" {
+  name = "assume-role"
+  user = aws_iam_user.home-server-user.name
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "sts:AssumeRole"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
 resource "aws_iam_access_key" "home-server-user-key" {
   user = aws_iam_user.home-server-user.name
 }
 
 /////////////////////////////////////////////////////
-
+//  build output files
+/////////////////////////////////////////////////////
 
 data "template_file" "home-server-setup" {
   template = "${file("${path.module}/home-server-setup.tpl")}"
   vars = {
     secret_key = aws_iam_access_key.home-server-user-key.secret
     access_key = aws_iam_access_key.home-server-user-key.id 
-    role_arn   = aws_iam_role.terraform-role.arn
+    role_arn   = aws_iam_role.home-server-role.arn
+    region     = local.region
   }
 }
 
