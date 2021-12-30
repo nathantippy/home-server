@@ -150,6 +150,19 @@ resource "aws_iam_role_policy" "home-server-packer-policy" {
   depends_on = [aws_iam_role.home-server-role]
 }
 
+# TODO: restrict once we know what we need.
+data "aws_iam_policy_document" "server-launch-role-policy" {
+  statement {
+    actions   = ["*"]
+    resources = ["*"]
+  }
+}
+resource "aws_iam_role_policy" "home-server-launch-policy" {
+  name   = "${local.home-server-user-name}-launch-policy"
+  policy = data.aws_iam_policy_document.server-launch-role-policy.json
+  role   = "${local.home-server-user-name}-role"
+  depends_on = [aws_iam_role.home-server-role]
+}
 ///////////////////////////////////////////////////////////////////////////////
 
 data "aws_iam_policy_document" "principal-identifiers" {
