@@ -32,6 +32,6 @@ docker run -v ${LOCAL_FOLDER}:/exports -e ACCESS_KEY="${ACCESS_KEY}" -e SECRET_K
 cd ..
 
 # backup these important files, you may wish to copy keep.bak to someplace safe
-zip -9 -u -x keep/.gitignore -r keep.bak keep
+zip -9 -u -x keep/.gitignore -x keep/*.pub -x keep/*.pem -r keep.bak keep
 
  
