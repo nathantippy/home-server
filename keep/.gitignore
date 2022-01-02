@@ -3,3 +3,5 @@
 /remote-state.tfvars
 /home-server-ssh.pem
 /home-server-ssh.pub
+/minecraft-server-ssh.pem
+/minecraft-server-ssh.pub

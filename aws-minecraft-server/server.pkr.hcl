@@ -34,7 +34,7 @@ data "amazon-ami" "found_debian" {
 
 locals {
     timestamp_id = "latest" #replace(replace(timestamp(),":","_"),"T","_")
-    server_name = "homeserver"
+    server_name = "minecraft"
 }
 
 

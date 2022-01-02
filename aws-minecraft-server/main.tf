@@ -43,7 +43,7 @@ variable "secret_key" {
 }
 
 locals {
-   key-name = "home-server-ssh"  
+   key-name = "minecraft-server-ssh"  
    instance-type = "t4g.micro"
 }
 
@@ -61,7 +61,7 @@ data "aws_ami" "most_recent_home-server" {
 	most_recent = true
 	filter {
 		name = "name"
-		values = ["debian_arm_homeserver_latest"] 
+		values = ["debian_arm_minecraft_latest"] 
 	}
 	filter {
 		name = "virtualization-type"
@@ -91,7 +91,7 @@ output "ip" {
 	value = aws_eip.primary-eip.public_ip
 }
 output "command" {
-	value = "sudo ssh -i \"./keep/home-server-ssh.pem\" admin@${aws_eip.primary-eip.public_ip}"
+	value = "sudo ssh -i \"./keep/minecraft-server-ssh.pem\" admin@${aws_eip.primary-eip.public_ip}"
 }
 
 resource "aws_internet_gateway" "test-env-gw" {
