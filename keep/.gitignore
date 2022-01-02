@@ -1,3 +1,5 @@
 /aws-init.tfstate
 /home-server-setup.sh
 /remote-state.tfvars
+/home-server-ssh.pem
+/home-server-ssh.pub
