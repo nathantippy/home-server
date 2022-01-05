@@ -91,7 +91,7 @@ output "ip" {
 	value = aws_eip.primary-eip.public_ip
 }
 output "command" {
-	value = "sudo ssh -i \"./keep/minecraft-server-ssh.pem\" admin@${aws_eip.primary-eip.public_ip}"
+	value = "sudo ssh -i ./keep/minecraft-server-ssh.pem admin@${aws_eip.primary-eip.public_ip}"
 }
 
 resource "aws_internet_gateway" "test-env-gw" {

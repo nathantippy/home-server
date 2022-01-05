@@ -45,6 +45,7 @@ variable "secret_key" {
 locals {
    key-name = "home-server-ssh"  
    instance-type = "t4g.micro"
+   bbb = "bbb"
 }
 
 data "aws_caller_identity" "current" {
@@ -91,7 +92,7 @@ output "ip" {
 	value = aws_eip.primary-eip.public_ip
 }
 output "command" {
-	value = "sudo ssh -i \"./keep/home-server-ssh.pem\" admin@${aws_eip.primary-eip.public_ip}"
+	value = "sudo ssh -i ./keep/home-server-ssh.pem admin@${aws_eip.primary-eip.public_ip}"
 }
 
 resource "aws_internet_gateway" "test-env-gw" {
