@@ -9,6 +9,7 @@ terraform {
     aws = ">= 3.1.0"  
     local = ">= 2.1.0"
     template = ">= 2.2.0"  
+    null = ">= 3.1.0"
   }
   
   required_version = "~> 1.1.2"
@@ -149,7 +150,7 @@ resource "aws_instance" "home-server" {
 
 
 resource "aws_security_group" "home-server" {
-   name = "home-server-sg" # needs more unique name...
+   name = "minecraft-sg" # needs more unique name...
    vpc_id = "${aws_vpc.test-env.id}"
    ingress {
     cidr_blocks = [
