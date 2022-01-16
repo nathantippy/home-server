@@ -3,11 +3,11 @@
 
 STATE_FILE="minecraft-server" 
 
-. keep/home-server-setup.sh
-
 if [ -f keep.bak ]; then
     unzip -o keep.bak
 fi
+
+. keep/home-server-setup.sh
 
 cd base-builder-image
     docker build -t base-builder-image .
