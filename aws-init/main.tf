@@ -18,10 +18,8 @@ locals {
    
     region                = "us-east-2"
     home-server-user-name = "server-builder"
-    
-   
-}
 
+}
 
 variable "access_key" { # NOTE: this is the admin key
 }
