@@ -140,7 +140,7 @@ resource "aws_instance" "home-server" {
 		iops                  = 3000 # 3000 is free, max is 16000
 		throughput            = 125  # 125 MB/s is free, max is 1000
 		volume_type           = "gp3"
-		volume_size           = 80  # in GB should be >= 8 for debian etc all,  can modify without source replacement!
+		volume_size           = 8  
 	
 	
 	}	
