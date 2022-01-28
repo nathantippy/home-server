@@ -1,0 +1,43 @@
+#!/usr/bin/expect -f
+#
+
+set force_conservative 0  ;# set to 1 to force conservative mode even if
+			  ;# script wasn't run conservatively originally
+if {$force_conservative} {
+	set send_slow {1 .1}
+	proc send {ignore arg} {
+		sleep .1
+		exp_send -s -- $arg
+	}
+}
+
+
+set timeout -1
+spawn sudo certbot certonly --standalone -d javanut.com
+match_max 100000
+expect -exact "Saving debug log to /var/log/letsencrypt/letsencrypt.log\r
+Plugins selected: Authenticator standalone, Installer None\r
+Enter email address (used for urgent renewal and security notices)\r
+ (Enter 'c' to cancel): "
+send -- "nathantippy@gmail.com\r"
+expect -exact "nathantippy@gmail.com\r
+\r
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\r
+Please read the Terms of Service at\r
+https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf. You must\r
+agree in order to register with the ACME server. Do you agree?\r
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\r
+(Y)es/(N)o: "
+send -- "Y\r"
+expect -exact "Y\r
+\r
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\r
+Would you be willing, once your first certificate is successfully issued, to\r
+share your email address with the Electronic Frontier Foundation, a founding\r
+partner of the Let's Encrypt project and the non-profit organization that\r
+develops Certbot? We'd like to send you email about our work encrypting the web,\r
+EFF news, campaigns, and ways to support digital freedom.\r
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\r
+(Y)es/(N)o: "
+send -- "Y\r"
+expect eof

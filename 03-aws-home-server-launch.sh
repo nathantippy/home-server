@@ -3,10 +3,11 @@
 TASK=${1:-"plan"}
 
 
-export LOCAL_FOLDER=$PWD/keep/
+export LOCAL_FOLDER=$PWD/keep/  # exports the pub/pem files for connecting
 
 # --user "$(id -u):$(id -g)" 
-docker run -v ${LOCAL_FOLDER}:/exports aws-home-server-build-launch ${TASK}
+docker run --rm -v ${LOCAL_FOLDER}:/exports aws-home-server-build-launch ${TASK}
+
 
 
 #sudo chmod 400 keep/home-server-ssh.pem # must be set or we can not use this to log in with SSH

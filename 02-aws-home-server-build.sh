@@ -1,13 +1,23 @@
 #!/bin/sh
 
+DOMAIN=${1:-"javanut.com"} # TODO: set to yourdomain.com
+DNS=${2:-"external"} # aws OR external
 
-STATE_FILE="home-server" # need longer name??
+if [ "yourdomain.com" == "${DOMAIN}" ]; then
+    read -e -p "Enter desired domain (you must already own this domain):" -i "yourdomain.com" DOMAIN
+fi
 
-. keep/home-server-setup.sh
+echo "your domain: ${DOMAIN}"
+
+
+PUBLIC_IP_STATE_FILE="home-server-public-ip"
+RUN_INSTANCE_STATE_FILE="home-server-run-instance" 
 
 if [ -f keep.bak ]; then
     unzip -o keep.bak
 fi
+
+. keep/home-server-setup.sh
 
 cd base-builder-image
     docker build -t base-builder-image .
@@ -17,21 +27,30 @@ cd aws-home-server
 
 # build our remote state config for terraform
 # do not change full name, its known by docker
-cat ../keep/remote-state.tfvars > full-remote-state.tfvars 
-echo "key  =  \"${STATE_FILE}.tfstate\"" >> full-remote-state.tfvars
-echo "role_arn  =  \"${role_arn}\"" >> full-remote-state.tfvars
+cat ../keep/remote-state.tfvars > remote-state.tfvars 
+echo "key  =  \"${PUBLIC_IP_STATE_FILE}.tfstate\"" >> remote-state.tfvars
+echo "role_arn  =  \"${role_arn}\"" >> remote-state.tfvars
+mv remote-state.tfvars public_ip
  
-echo "-----------------------" 
-cat full-remote-state.tfvars
-echo "-----------------------" 
+cat ../keep/remote-state.tfvars > remote-state.tfvars 
+echo "key  =  \"${RUN_INSTANCE_STATE_FILE}.tfstate\"" >> remote-state.tfvars
+echo "role_arn  =  \"${role_arn}\"" >> remote-state.tfvars
+mv remote-state.tfvars run_instance 
+ 
 
 # build
 docker build --build-arg access_key="${access_key}"\
              --build-arg secret_key="${secret_key}"\
              --build-arg region="${region}"\
              --build-arg role_arn="${role_arn}"\
+             --build-arg domain="${DOMAIN}"\
+             --build-arg dns_impl="${DNS}"\
              --build-arg user="$(id -u):$(id -g)"\
              -t aws-home-server-build-launch .
+
+docker run --rm aws-home-server-build-launch instructions
+
+
 
 cd ..
 
