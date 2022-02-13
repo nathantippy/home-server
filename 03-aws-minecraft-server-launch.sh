@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TASK=${1:-"plan"}
+TASK=${1:-"apply"}
 
 
 export LOCAL_FOLDER=$PWD/keep/

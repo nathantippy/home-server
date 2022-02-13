@@ -66,7 +66,7 @@ resource "aws_vpc" "home-server" {
   enable_dns_hostnames = true
   enable_dns_support = true
   tags =  {
-  	Name = "home-server"
+  	Name = "home-server-${replace(var.email_domain,".","-")}"
   }
 }
 
@@ -154,13 +154,13 @@ resource "aws_ebs_volume" "user-data" {
   kms_key_id        = aws_kms_key.home-server-user-data.arn
   
   tags = {
- 	"Name" : "homeserver-users" 
+ 	"Name" : "homeserver-users-${replace(var.email_domain,".","-")}" 
   } 
 }
 
 
 resource "aws_security_group" "home-server" { 
-   name = "home-server" # needs more unique name...
+   name = "home-server-${replace(var.email_domain,".","-")}"
    vpc_id = aws_vpc.home-server.id
    ingress {
     cidr_blocks = [
@@ -170,7 +170,7 @@ resource "aws_security_group" "home-server" {
     to_port = 22
     protocol = "tcp"
   }  
-  ingress { # TODO: set up certs to remove this.
+  ingress { # http for roundcube and matrix
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -178,7 +178,7 @@ resource "aws_security_group" "home-server" {
     to_port = 80
     protocol = "tcp"
   }  
-  ingress {
+  ingress { # https for roundcube and matrix
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -186,8 +186,16 @@ resource "aws_security_group" "home-server" {
     to_port = 443
     protocol = "tcp"
   }  
-  
-  ingress { # email
+  ingress { # http for cockpit
+    cidr_blocks = [
+      "0.0.0.0/0"
+    ]
+    from_port = 9090
+    to_port = 9090
+    protocol = "tcp"
+  }  
+ 
+  ingress { # SMTP email 25 !!!
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -195,7 +203,15 @@ resource "aws_security_group" "home-server" {
     to_port = 25
     protocol = "tcp"
   }
-  ingress { # email
+  ingress { # SMTP SSL/TLS email 465  
+    cidr_blocks = [
+      "0.0.0.0/0"
+    ]
+    from_port = 465
+    to_port = 465
+    protocol = "tcp"
+  } 
+  ingress { # SMTP SSL/TLS & STARTTLS email 587  - not working or used.
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -203,7 +219,8 @@ resource "aws_security_group" "home-server" {
     to_port = 587
     protocol = "tcp"
   }
-  ingress { # IMAP
+
+  ingress { # IMAP STARTTLS AND NONE email 143  !!!
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -211,7 +228,7 @@ resource "aws_security_group" "home-server" {
     to_port = 143
     protocol = "tcp"
   }
-  ingress { # IMAP SSL
+  ingress { # IMAP SSL/TLS   !!!
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -219,7 +236,8 @@ resource "aws_security_group" "home-server" {
     to_port = 993
     protocol = "tcp"
   }
-  ingress { # pop3 ssl
+  
+  ingress { # pop3 SSL/TLS
     cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -227,7 +245,7 @@ resource "aws_security_group" "home-server" {
     to_port = 995
     protocol = "tcp"
   }
-    ingress { # pop3
+    ingress { # pop3 STARTTLS and NONE
    cidr_blocks = [
       "0.0.0.0/0"
     ]
@@ -236,6 +254,38 @@ resource "aws_security_group" "home-server" {
     protocol = "tcp"
   }
   
+  
+    ingress {
+    description      = "ping"
+    from_port        = 8
+    to_port          = 0
+    protocol         = "icmp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+  
+  ingress {
+    description      = "packet_too_big_please_fragment"
+    from_port        = 3
+    to_port          = 4
+    protocol         = "icmp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description      = "time_exceeded"
+    from_port        = 11
+    to_port          = 0
+    protocol         = "icmp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description      = "traceroute"
+    from_port        = 30
+    to_port          = 0
+    protocol         = "icmp"
+    cidr_blocks      = ["0.0.0.0/0"]
+  }
   
 // Terraform removes the default rule
   egress {

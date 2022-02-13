@@ -9,9 +9,13 @@ fi
 
 echo "your domain: ${DOMAIN}"
 
+# these are specific to each domain so we can run multple servers for differnt domains in the same account
+PUBLIC_IP_STATE_FILE="home-server-${DOMAIN//./-}-public-ip"
+RUN_INSTANCE_STATE_FILE="home-server-${DOMAIN//./-}-run-instance" 
 
-PUBLIC_IP_STATE_FILE="home-server-public-ip"
-RUN_INSTANCE_STATE_FILE="home-server-run-instance" 
+echo "public_ip state: ${PUBLIC_IP_STATE_FILE}"
+echo "run_instance state: ${RUN_INSTANCE_STATE_FILE}"
+
 
 if [ -f keep.bak ]; then
     unzip -o keep.bak
@@ -49,8 +53,6 @@ docker build --build-arg access_key="${access_key}"\
              -t aws-home-server-build-launch .
 
 docker run --rm aws-home-server-build-launch instructions
-
-
 
 cd ..
 

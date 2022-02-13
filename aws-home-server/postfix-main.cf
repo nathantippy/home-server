@@ -1,6 +1,5 @@
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version
 
-smtpd_banner = $mydomain
 biff = no
 # appending .domain is the MUA's job.
 append_dot_mydomain = no
@@ -13,9 +12,11 @@ compatibility_level = 2
 # TLS parameters - TODO: when generated we need to keep this safe or at leat just regenerate.
 smtpd_tls_cert_file = /etc/letsencrypt/live/${TF-DOMAIN}/fullchain.pem
 smtpd_tls_key_file = /etc/letsencrypt/live/${TF-DOMAIN}/privkey.pem
-smtp_tls_note_starttls_offer = yes
 smtpd_tls_loglevel = 1
-smtpd_tls_received_header = yes
+
+smtpd_use_tls = yes
+smtpd_tls_session_cache_timeout = 3600s
+
 smtp_tls_security_level=may
 smtpd_tls_security_level=may
 smtpd_tls_session_cache_database = btree:$${data_directory}/smtpd_scache
@@ -25,25 +26,23 @@ smtp_tls_session_cache_database = btree:$${data_directory}/smtp_scache
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
 
-smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
 myhostname = ${TF-HOSTNAME}
 
 mydomain = ${TF-DOMAIN}
 
-smtpd_banner = $myhostname
+smtpd_banner = ${TF-HOSTNAME}
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 
-#myorigin = /etc/mailname
-myorigin = $mydomain
+myorigin = ${TF-DOMAIN}
 
-mydestination = $myhostname, $mydomain, localhost.$mydomain, localhost
-relayhost = 
+mydestination = ${TF-HOSTNAME}, ${TF-DOMAIN}, localhost.${TF-DOMAIN}, localhost
+
 mynetworks = 127.0.0.0/8, ${TF-PRIVATE-CIDR}
 mailbox_size_limit = ${TF-MAX-MAILBOX_SIZE}
 recipient_delimiter = +
 inet_interfaces = all
-#inet_protocols = all
+# do not use ipv6 due to email forwarding issues
 inet_protocols = ipv4
 
 home_mailbox = Maildir/
@@ -52,14 +51,36 @@ home_mailbox = Maildir/
 smtpd_client_message_rate_limit = 3
 anvil_rate_time_unit = 20s
 
+# no map neeed if we do not relay
+#relayhost = 
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+
+
+smtpd_tls_auth_only = yes
+#smtpd_tls_received_header = no
+#smtp_tls_note_starttls_offer = no
+
 
 # SMTP-Auth settings
+smtp_sasl_auth_enable = yes
+smtpd_sasl_auth_enable = yes
 smtpd_sasl_type = dovecot
 smtpd_sasl_path = private/auth
-smtpd_sasl_auth_enable = yes
+
+#smtp_sender_dependent_authentication = no
+
 broken_sasl_auth_clients = yes
+
+smtpd_tls_protocols=!SSLv2,!SSLv3,!TLSv1,!TLSv1.1
+smtpd_tls_mandatory_protocols=!SSLv2,!SSLv3,!TLSv1,!TLSv1.1
+
 smtpd_sasl_security_options = noanonymous
-smtpd_sasl_local_domain = $myhostname
-smtpd_recipient_restrictions = permit_sasl_authenticated,permit_mynetworks,reject_unauth_destination
-#OLD: permit_mynetworks,permit_auth_destination,permit_sasl_authenticated,reject
+
+smtpd_sasl_local_domain = ${TF-HOSTNAME}
+
+#sender_dependent_relayhost_maps = hash:/etc/postfix/sender_relay
+
+smtpd_recipient_restrictions = permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination
+smtpd_relay_restrictions = permit_mynetworks,permit_sasl_authenticated,defer_unauth_destination
+smtpd_client_restrictions = permit_mynetworks,permit_sasl_authenticated,reject_unauth_destination
                               

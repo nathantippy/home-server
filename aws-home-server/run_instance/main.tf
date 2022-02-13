@@ -47,7 +47,7 @@ locals {
    dns_count        = "aws"==var.dns_impl ?  1 : 0 # only set up route53 if dns_impl is set to aws
    
    key-name         = "home-server-ssh"
-   instance-type    = "t4g.micro"
+   instance-type    = "t4g.nano"# "t4g.micro"
    max-mailbox-size = 17179869184  # in bytes 16 GB, the default for gmail is 16.
 }
 
@@ -70,7 +70,7 @@ data "aws_ami" "most_recent_home-server" {
 }
 
 resource "random_string" "roundcube-pass" {
-	length  = 22
+	length  = 18
 	special = false
 	upper   = true
 	number  = true
@@ -80,6 +80,19 @@ resource "random_string" "roundcube-pass" {
     	private_key = sha512("${data.local_file.ssh-pem.content}")
     }   
 }
+resource "random_string" "admin-pass" {
+	length  = 18
+	special = false
+	upper   = true
+	number  = true
+	lower   = true
+	keepers = {
+    	eip = "${data.terraform_remote_state.prev.outputs.ip}"
+    	private_key = sha512("${data.local_file.ssh-pem.content}")
+    }   
+}
+
+
 
 resource "aws_kms_key" "home-server-root-ebs" {
   description             = "Home Server Root EBS"
@@ -92,7 +105,9 @@ resource "aws_eip_association" "eip_assoc" {
   allocation_id = data.terraform_remote_state.prev.outputs.ip-arn
 }
 
-
+output "roundcube" {
+	value = "db: roundcubemail user: roundcube pass: ${random_string.roundcube-pass.result}" 
+}
    
 
 output "command" {
@@ -161,13 +176,6 @@ resource "aws_instance" "home-server" {
 }
 
 
-
-
-locals {
-	userpass = random_string.roundcube-pass.result # "roundcube" # TODO: extract and auto generate,  TODO: also move EIP out to own state file..
-	
-}
-
 data "local_file" "ssh-pem" {
    filename = "../${var.pem_key_file}"
 }
@@ -192,23 +200,42 @@ data "template_file" "postfix-main-cf" {
 data "template_file" "expect-createuser" {
 	template = file("${path.module}/../expect-createuser.txt")
 	vars = {
-		PG_PASS  = local.userpass
+		PG_PASS  = random_string.roundcube-pass.result 
 	}
 }
 data "template_file" "expect-createdb" {
 	template = file("${path.module}/../expect-createdb.txt")
 	vars = {
-	    PG_PASS  = local.userpass
+	    PG_PASS  = random_string.roundcube-pass.result 
 	}
 }
+output "admin_pass" {
+	value = random_string.admin-pass.result
+}
+
+data "template_file" "expect-admin" {
+	template = file("${path.module}/../expect-admin.txt")
+	vars = {
+	    PG_PASS  = random_string.admin-pass.result # TODO: generate new password for admin
+	}
+}
+
 data "template_file" "roundcube-config-inc-php" {
 	template = file("${path.module}/../config_inc_php.tpl")
 	vars = {
-	    PG_PASS  = local.userpass
+	    PG_PASS       = random_string.roundcube-pass.result 
+	    TF-DOMAIN     = var.email_domain
 	}
 }
 data "template_file" "startup_creds_sh" {
 	template = file("${path.module}/startup_creds.sh")
+	vars = {
+		TF-DOMAIN          = var.email_domain
+	    TF-DOMAIN-NAME     = replace(var.email_domain,".","_")
+	}
+}
+data "template_file" "dovecot_10_ssl" {
+	template = file("${path.module}/dovecot-10-ssl.conf")
 	vars = {
 		TF-DOMAIN     = var.email_domain
 	}
@@ -217,9 +244,13 @@ data "template_file" "startup_creds_sh" {
 
 resource "null_resource" "setup_instance" { 
 
+  #warning we are changing the mount point for /home/admin which must be done first. 
+  depends_on = [aws_volume_attachment.user-data, aws_instance.home-server ]
+  
+    
   provisioner "file" {
 	    content = data.template_file.roundcube-config-inc-php.rendered
-	    destination = "config.inc.php"
+	    destination = "config.inc.php" # /var/www/html/roundcube/config/	    
 	    connection {
 	      type = "ssh"
 	      host = data.terraform_remote_state.prev.outputs.ip
@@ -228,6 +259,62 @@ resource "null_resource" "setup_instance" {
 	     
 	    }  
    }
+
+   provisioner "file" {
+	    content = data.template_file.postfix-main-cf.rendered
+	    destination = "main.cf" # /etc/postfix/
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	    }  
+   }
+
+   provisioner "file" {
+        source = "${path.module}/dovecot-10-master.conf"
+	    destination = "10-master.conf" # /etc/dovecot/conf.d/
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+   
+    provisioner "file" {
+        content = data.template_file.dovecot_10_ssl.rendered
+	    destination = "10-ssl.conf" # /etc/dovecot/conf.d/
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	 
+	    }  
+    } 
+
+   provisioner "file" {
+        source = "${path.module}/users_backup.sh"
+	    destination = "users_backup.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+    provisioner "file" {
+        source = "${path.module}/users_restore.sh"
+	    destination = "users_restore.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+    
 
   provisioner "file" {
 	    content = data.template_file.expect-createuser.rendered
@@ -252,43 +339,7 @@ resource "null_resource" "setup_instance" {
 	  
 	    }  
    }
-   
- 
-  provisioner "file" {
-	    source = "${path.module}/letsencrypt.zip"
-	    destination = "letsencrypt.zip"
-	    connection {
-	      type = "ssh"
-	      host = data.terraform_remote_state.prev.outputs.ip
-	      user = "admin"
-	      private_key = data.local_file.ssh-pem.content
-	  
-	    }  
-   }
 
-  provisioner "file" {
-	    content = data.template_file.postfix-main-cf.rendered
-	    destination = "postfix-main.cf"
-	    connection {
-	      type = "ssh"
-	      host = data.terraform_remote_state.prev.outputs.ip
-	      user = "admin"
-	      private_key = data.local_file.ssh-pem.content
-	
-	    }  
-   }
-
-  provisioner "file" {
-        source = "${path.module}/dovecot-10-master.conf"
-	    destination = "dovecot-10-master.conf"
-	    connection {
-	      type = "ssh"
-	      host = data.terraform_remote_state.prev.outputs.ip
-	      user = "admin"
-	      private_key = data.local_file.ssh-pem.content
-	 
-	    }  
-   }
    
   provisioner "file" {
         content = data.template_file.startup_creds_sh.rendered
@@ -311,58 +362,47 @@ resource "null_resource" "setup_instance" {
       #timeout = "2m"
     }  
     inline = [ "echo \"successful connection ssh admin@${data.terraform_remote_state.prev.outputs.ip} \"",
-               "ls",
-               "sudo hostnamectl set-hostname ${var.email_domain}",
-               
-               "sudo bash -c \"echo '${data.terraform_remote_state.prev.outputs.ip} ${var.email_domain} mail.${var.email_domain}' >> /etc/hosts\"",
-               "sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix -y",
-             
-               "sudo cp /etc/postfix/main.cf{,.backup}",
-               "sudo cp postfix-main.cf /etc/postfix/main.cf",
-             
-               "sudo postconf -n",
-               "sudo rm postfix-main.cf",
-               "sudo systemctl restart postfix",
-              
-              "sudo apt-get install dovecot-core -y", # version set in packer for script compatibility
-              "sudo apt-get install dovecot-imapd -y", # version set in packer for script compatibility
-              "sudo sed -i \"s|#listen = |listen = |g\" /etc/dovecot/dovecot.conf",  # 
-              
-              "sudo sed -i \"s|#disable_plaintext_auth = yes|disable_plaintext_auth = no|g\" /etc/dovecot/conf.d/10-auth.conf",
-              "sudo sed -i \"s|auth_mechanisms = plain|auth_mechanisms = plain login|g\" /etc/dovecot/conf.d/10-auth.conf",
-              
+           
+              "sudo chmod +x startup_creds.sh",
+              "sudo bash -c \"echo '${data.terraform_remote_state.prev.outputs.ip} ${var.email_domain} mail.${var.email_domain}' >> /etc/hosts\"",  
+		
               #create the user and database for roundcube given the desired password.
               "sudo chmod +x expect-createuser.run",
               "sudo chmod +x expect-createdb.run",
-			  "./expect-createuser.run || true",
-              "./expect-createdb.run || true",
-              
-              "sudo chmod +x startup_creds.sh",
-              # TODO: need to update the config and init the db...
-              
-              "sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = maildir:~/Maildir|g\" /etc/dovecot/conf.d/10-mail.conf",
-              "sudo cp dovecot-10-master.conf /etc/dovecot/conf.d/10-master.conf",
-              "sudo systemctl restart dovecot.service",
-              
+              "sudo chmod +x expect-admin.run",
+              "sudo ./expect-createuser.run && rm ./expect-createuser.run",
+		      "sudo ./expect-createdb.run && rm ./expect-createdb.run",
+		      #"sudo ./expect-admin.run && rm ./expect-admin.run", # do not enable until we have the password
+		      		      
+		      		      
+              "sudo chmod +x users_backup.sh",
+              "sudo chmod +x users_restore.sh",
+              "sudo ./users_restore.sh", # if we have no users to restore that is ok
+ 
+
          #     "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install roundcube roundcube-pgsql roundcube-plugins roundcube-plugins-extra php-net-ldap2",           
              
-                         #  "sudo unzip -o letsencrypt.zip  # password?
-                         #  sudo service apache2 stop
-                         #  autoexpect sudo certbot certonly --standalone -d javanut.com    ", # prompts when port 80 is open only!
-                         #  sudo zip letsencrypt.zip /etc/letsencrypt/* -r -e
+                 #  "sudo unzip -o letsencrypt.zip  # password?
+                 #  sudo service apache2 stop
+                 #  autoexpect sudo certbot certonly --standalone -d javanut.com    ", # prompts when port 80 is open only!
+                 #  sudo zip letsencrypt.zip /etc/letsencrypt/* -r -e
             
-            #  apt-cache madison certbot # we need our version then pipe in the commands?             
-              # sudo /sbin/adduser nate
-           
+              #  apt-cache madison certbot # we need our version then pipe in the commands?             
+              #  sudo /sbin/adduser nate
+            
                   # install roundcube now that we have the domain name       
-                      
-              "echo \"Done with postfix setup.\""
+   
+   
+   
+				  # this does not appear to be supported on AWS and must be researched.
+				  # TODO: dont do this and test it.
+	      		  # sudo hostnamectl set-hostname ${var.email_domain}        
+                       
+                "echo \"Done with postfix setup.\""
              ]
   }
 
-  #triggers = { always = timestamp() } # comment this out so we only run on instance creation.
-
-} //    */
+} 
 
 
 

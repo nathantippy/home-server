@@ -17,3 +17,5 @@ docker run --rm -v ${LOCAL_FOLDER}:/exports aws-home-server-build-launch ${TASK}
 
 
  
+echo "visit: http://javanut.com/roundcube/installer/"
+

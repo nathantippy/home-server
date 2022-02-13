@@ -62,7 +62,7 @@ $config['db_dsnw'] = 'pgsql://roundcube:${PG_PASS}@localhost/roundcubemail';
 
 //          required to match old user data records with the new host.
 
-$config['default_host'] = 'ssl://javanut.com';
+$config['default_host'] = '${TF-DOMAIN}';
 
 // ----------------------------------
 
@@ -94,7 +94,13 @@ $config['default_host'] = 'ssl://javanut.com';
 
 // of IMAP host (no prefix or port) and SMTP server e.g. ['imap.example.com' => 'smtp.example.net']
 
-$config['smtp_server'] = 'ssl://smtp.javanut.com';
+// ${TF-DOMAIN}';  'localhost';
+
+$config['smtp_server'] = 'localhost';
+
+// 25 on localhostt
+$config['smtp_port'] = 587;
+//465;
 
 // provide an URL where a user can get support for this Roundcube installation
 
@@ -132,8 +138,8 @@ $config['des_key'] = '3uKtsGWe17OgbIp3JJhRrSOf';
 
 // For example %n = mail.domain.tld, %t = domain.tld
 
-$config['username_domain'] = 'javanut.com';
-
+$config['username_domain'] = '${TF-DOMAIN}';
+ 
 // ----------------------------------
 
 // PLUGINS
@@ -166,8 +172,9 @@ $config['language'] = 'en_US';
 
 // You can connect to any other googie-compliant service by setting 'spellcheck_uri' accordingly.
 
-$config['spellcheck_engine'] = 'atd';
+// $con fig['spellcheck_engine'] = 'atd';
 
 $config['enable_installer'] = true;
+
 
 

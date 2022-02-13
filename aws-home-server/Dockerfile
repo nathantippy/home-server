@@ -29,6 +29,8 @@ ENV USER="${user}"
 ENV AWS_ACCESS_KEY_ID=$access_key
 ENV AWS_SECRET_ACCESS_KEY=$secret_key
 
+RUN echo "-------------------------------------------------- $(date)"
+
 # build new server images, downloading the latest code, NOTE: we may use a pre build packer image later..
 COPY ./server.pkr.hcl /
 RUN packer build -parallel-builds=2\
@@ -38,6 +40,8 @@ RUN packer build -parallel-builds=2\
    -var "role_arn=${role_arn}"\
      server.pkr.hcl
 
+RUN echo "--------- $(date)"
+
 
 COPY ./postfix-main.cf /
 COPY ./user-data.sh /
@@ -46,9 +50,9 @@ COPY ./config_inc_php.tpl /
 ####################################################
 # copy in expect- and inject the password...
 # use expect to create the user and db
-ENV PG_PASS=roundcube
 COPY ./expect-createuser.txt /
 COPY ./expect-createdb.txt /
+COPY ./exepct-admin.txt /
 ####################################################
 
 RUN ssh-keygen -m PEM -t rsa -b 4096 -f home-server-ssh # build key early so we are unlikely to build it again.
@@ -58,21 +62,21 @@ RUN chown ${user} home-server-ssh.pub
 RUN chown ${user} home-server-ssh
 
 
-
-
 # terraform and remote state
 ADD public_ip public_ip
 RUN terraform -chdir=./public_ip init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
+RUN terraform -chdir=./public_ip plan
 RUN terraform -chdir=./public_ip apply -auto-approve
 RUN terraform -chdir=./public_ip state pull > public_ip.tfstate # keep for the next step
 
 
-RUN echo "-------------------------------------------------"
+
 # both init and apply the public ips to lock this down
 # share instructions after this for taking ip and adding to DNS.
 
 
 ADD run_instance run_instance
+RUN cat run_instance/remote-state.tfvars
 RUN terraform -chdir="./run_instance" init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
 
 COPY ./internal_run.sh /
