@@ -24,7 +24,7 @@ provider "aws" {
   }    
 }
 
-variable "email_domain" {}
+variable "domain" {}
 variable "region" {}
 variable "pub_key_file" {}
 variable "pem_key_file" {}
@@ -33,9 +33,19 @@ variable "access_key" {}
 variable "secret_key" {}
 
 locals {
-   key-name         = "home-server-ssh"
-   vpn_cidr         = "10.10.0.0/16"
-   volume_size      = 80 # GB for all the server with room for all the users
+   key-name               = "home-server-ssh"
+   vpn_cidr               = "10.10.0.0/16"
+   
+   users_volume_type      = "gp3"
+   users_volume_size      = 80 # GB for all the server with room for all the users
+   users_volume_iops      = 3000
+   users_volume_thoughput = 125
+   
+   www_volume_type        = "gp3"
+   www_volume_size        = 80 # GB for all the server with room for all the users
+   www_volume_iops        = 3000
+   www_volume_thoughput   = 125
+      
 }
 
 data "aws_caller_identity" "current" {
@@ -66,7 +76,7 @@ resource "aws_vpc" "home-server" {
   enable_dns_hostnames = true
   enable_dns_support = true
   tags =  {
-  	Name = "home-server-${replace(var.email_domain,".","-")}"
+  	Name = "home-server-${replace(var.domain,".","-")}"
   }
 }
 
@@ -83,7 +93,7 @@ resource "null_resource" "setup_reverse_dns" {
     export AWS_ACCESS_KEY_ID=$(echo $SESSION | jq -r .Credentials.AccessKeyId); 
     export AWS_SECRET_ACCESS_KEY=$(echo $SESSION | jq -r .Credentials.SecretAccessKey); 
     export AWS_SESSION_TOKEN=$(echo $SESSION | jq -r .Credentials.SessionToken); 
-    aws ec2 modify-address-attribute --allocation-id ${aws_eip.primary-eip.id} --domain-name ${var.email_domain} --region ${var.region} "
+    aws ec2 modify-address-attribute --allocation-id ${aws_eip.primary-eip.id} --domain-name ${var.domain} --region ${var.region} "
 EOF
     environment = {
       AWS_ACCESS_KEY_ID = var.access_key
@@ -138,29 +148,52 @@ resource "aws_subnet" "home-region-c" {
 
 
 resource "aws_kms_key" "home-server-user-data" {
-  description             = "Home Server Users Data EBS"
+  description             = "${var.domain} Users Data EBS"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 }
+
+resource "aws_kms_key" "home-server-www-data" {
+  description             = "${var.domain} WWW Data EBS"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+}
+
 
 resource "aws_ebs_volume" "user-data" {
   availability_zone = aws_subnet.home-region-a.availability_zone
   encrypted         = true
   
-  type              = "gp3"
-  size              = local.volume_size  # in GB should be >= 8 for debian etc all,  can modify without source replacement!
-  iops              = 3000
-  throughput        = 125
+  type              = local.users_volume_type
+  size              = local.users_volume_size
+  iops              = local.users_volume_iops
+  throughput        = local.users_volume_thoughput  
+    
   kms_key_id        = aws_kms_key.home-server-user-data.arn
   
   tags = {
- 	"Name" : "homeserver-users-${replace(var.email_domain,".","-")}" 
+ 	"Name" : "homeserver-users-${replace(var.domain,".","-")}" 
+  } 
+}
+resource "aws_ebs_volume" "www-data" {
+  availability_zone = aws_subnet.home-region-a.availability_zone
+  encrypted         = true
+  
+  type              = local.www_volume_type
+  size              = local.www_volume_size
+  iops              = local.www_volume_iops
+  throughput        = local.www_volume_thoughput  
+    
+  kms_key_id        = aws_kms_key.home-server-www-data.arn
+  
+  tags = {
+ 	"Name" : "homeserver-www-${replace(var.domain,".","-")}" 
   } 
 }
 
 
 resource "aws_security_group" "home-server" { 
-   name = "home-server-${replace(var.email_domain,".","-")}"
+   name = "home-server-${replace(var.domain,".","-")}"
    vpc_id = aws_vpc.home-server.id
    ingress {
     cidr_blocks = [

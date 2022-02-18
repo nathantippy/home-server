@@ -29,11 +29,11 @@ ENV USER="${user}"
 ENV AWS_ACCESS_KEY_ID=$access_key
 ENV AWS_SECRET_ACCESS_KEY=$secret_key
 
-RUN echo "-------------------------------------------------- $(date)"
+#RUN echo "-------------------------------------------------- $(date)"
 
 # build new server images, downloading the latest code, NOTE: we may use a pre build packer image later..
 COPY ./server.pkr.hcl /
-RUN packer build -parallel-builds=2\
+RUN packer build -parallel-builds=8\
    -var "access_key=${access_key}"\
    -var "secret_key=${secret_key}"\
    -var "region=${region}"\
@@ -44,7 +44,6 @@ RUN echo "--------- $(date)"
 
 
 COPY ./postfix-main.cf /
-COPY ./user-data.sh /
 COPY ./config_inc_php.tpl /
 
 ####################################################
@@ -52,7 +51,7 @@ COPY ./config_inc_php.tpl /
 # use expect to create the user and db
 COPY ./expect-createuser.txt /
 COPY ./expect-createdb.txt /
-COPY ./exepct-admin.txt /
+COPY ./expect-admin.txt /
 ####################################################
 
 RUN ssh-keygen -m PEM -t rsa -b 4096 -f home-server-ssh # build key early so we are unlikely to build it again.

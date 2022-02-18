@@ -152,7 +152,6 @@ resource "aws_instance" "home-server" {
 	key_name = local.key-name
     vpc_security_group_ids = [data.terraform_remote_state.prev.outputs.security-group-id]
 
-	user_data = data.template_file.user_data.rendered
     subnet_id = "${data.terraform_remote_state.prev.outputs.subnet-zone-a-id}"
 
 	root_block_device {
@@ -181,12 +180,7 @@ data "local_file" "ssh-pem" {
 }
 
 
-data "template_file" "user_data" {
-    template = file("${path.module}/../user-data.sh")
-	vars = {
-	    home_ebs_device = "/dev/nvme1n1"
-	}
-}
+
 
 data "template_file" "postfix-main-cf" {
 	template = file("${path.module}/../postfix-main.cf")
@@ -216,7 +210,7 @@ output "admin_pass" {
 data "template_file" "expect-admin" {
 	template = file("${path.module}/../expect-admin.txt")
 	vars = {
-	    PG_PASS  = random_string.admin-pass.result # TODO: generate new password for admin
+	    ADMIN_PASS  = random_string.admin-pass.result 
 	}
 }
 
@@ -232,6 +226,7 @@ data "template_file" "startup_creds_sh" {
 	vars = {
 		TF-DOMAIN          = var.email_domain
 	    TF-DOMAIN-NAME     = replace(var.email_domain,".","_")
+	    HOME-EBS-DEVICE    = "/dev/nvme1n1" 
 	}
 }
 data "template_file" "dovecot_10_ssl" {
@@ -244,7 +239,6 @@ data "template_file" "dovecot_10_ssl" {
 
 resource "null_resource" "setup_instance" { 
 
-  #warning we are changing the mount point for /home/admin which must be done first. 
   depends_on = [aws_volume_attachment.user-data, aws_instance.home-server ]
   
     
@@ -372,31 +366,22 @@ resource "null_resource" "setup_instance" {
               "sudo chmod +x expect-admin.run",
               "sudo ./expect-createuser.run && rm ./expect-createuser.run",
 		      "sudo ./expect-createdb.run && rm ./expect-createdb.run",
-		      #"sudo ./expect-admin.run && rm ./expect-admin.run", # do not enable until we have the password
-		      		      
-		      		      
+		      "sudo ./expect-admin.run && rm ./expect-admin.run", # do not enable until we have the password
+		      		      		      		      
               "sudo chmod +x users_backup.sh",
               "sudo chmod +x users_restore.sh",
-              "sudo ./users_restore.sh", # if we have no users to restore that is ok
  
-
-         #     "sudo DEBIAN_FRONTEND=noninteractive apt-get -y install roundcube roundcube-pgsql roundcube-plugins roundcube-plugins-extra php-net-ldap2",           
-             
-                 #  "sudo unzip -o letsencrypt.zip  # password?
-                 #  sudo service apache2 stop
-                 #  autoexpect sudo certbot certonly --standalone -d javanut.com    ", # prompts when port 80 is open only!
-                 #  sudo zip letsencrypt.zip /etc/letsencrypt/* -r -e
-            
-              #  apt-cache madison certbot # we need our version then pipe in the commands?             
+			   "sudo mv main.cf /etc/postfix/main.cf",
+			   "sudo mv 10-master.conf /etc/dovecot/conf.d/10-master.conf",
+			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",
+			   "sudo mv config.inc.php /var/www/html/roundcube/config/config.inc.php",
+			                         
               #  sudo /sbin/adduser nate
             
-                  # install roundcube now that we have the domain name       
+             
    
-   
-   
-				  # this does not appear to be supported on AWS and must be researched.
-				  # TODO: dont do this and test it.
-	      		  # sudo hostnamectl set-hostname ${var.email_domain}        
+				  # this does not appear to be supported on AWS 
+				  # NOTE: DO NOT CALL THIS: sudo hostnamectl set-hostname ${var.email_domain}               
                        
                 "echo \"Done with postfix setup.\""
              ]

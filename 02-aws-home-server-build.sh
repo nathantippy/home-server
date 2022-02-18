@@ -52,7 +52,9 @@ docker build --build-arg access_key="${access_key}"\
              --build-arg user="$(id -u):$(id -g)"\
              -t aws-home-server-build-launch .
 
-docker run --rm aws-home-server-build-launch instructions
+if [ "$?" -eq 0 ]; then
+    docker run --rm aws-home-server-build-launch instructions
+fi
 
 cd ..
 

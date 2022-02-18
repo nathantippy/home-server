@@ -130,6 +130,7 @@ build {
 				# we setup the mail server late to ensure that /etc/resolv.conf is done changing so postfix can resolve dns entries
 	            # https://upcloud.com/community/tutorials/secure-postfix-using-lets-encrypt/                                
 				####################################################################################################################         
+                "apt-cache madison postfix",
                 "sudo apt-get install certbot=1.12.0-2 -y",
 		        ## start of mail installer.   
 		        ## https://www.tecmint.com/install-postfix-mail-server-with-webmail-in-debian/
@@ -145,13 +146,19 @@ build {
 				"sudo mkdir -p /etc/postfix/sasl_passwd",
 				"sudo /usr/sbin/postmap /etc/postfix/sasl_passwd",
 				"sudo postconf -n",
-                "sudo apt-get install libsasl2-2 libsasl2-modules sasl2-bin -y", 
 				############################################################################################################################
+                "apt-cache madison dovecot",
                 "sudo apt-get install dovecot-core=1:2.3.13+dfsg1-2 -y", # grab specific version tested for the scripts
                 "sudo apt-get install dovecot-imapd=1:2.3.13+dfsg1-2 -y", # grab specific version tested for the scripts
                 "sudo apt-get install dovecot-pop3d=1:2.3.13+dfsg1-2 -y", # grab specific version tested for the scripts
                 "sudo apt-get install dovecot-pgsql=1:2.3.13+dfsg1-2 -y", # grab specific version tested for the scripts
                 "sudo apt-get install dovecot-lucene=1:2.3.13+dfsg1-2 -y",   #apt-cache madison
+
+			    "sudo apt-get install dovecot-gssapi -y", 
+			    "sudo apt-get install dovecot-managesieved dovecot-sieve -y",
+			    "sudo apt-get install dovecot-solr -y",       #  collides with postfix dovecot-submissiond -y",
+
+                "sudo apt-get install libsasl2-2 libsasl2-modules sasl2-bin -y", 
 				"sudo sed -i \"s|#listen = |listen = |g\" /etc/dovecot/dovecot.conf",           
 				"sudo sed -i \"s|#disable_plaintext_auth = yes|disable_plaintext_auth = no|g\" /etc/dovecot/conf.d/10-auth.conf",
 				"sudo sed -i \"s|auth_mechanisms = plain|auth_mechanisms = plain login|g\" /etc/dovecot/conf.d/10-auth.conf",                    

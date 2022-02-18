@@ -62,7 +62,7 @@ $config['db_dsnw'] = 'pgsql://roundcube:${PG_PASS}@localhost/roundcubemail';
 
 //          required to match old user data records with the new host.
 
-$config['default_host'] = '${TF-DOMAIN}';
+$config['default_host'] = 'tls://${TF-DOMAIN}';
 
 // ----------------------------------
 
@@ -96,10 +96,12 @@ $config['default_host'] = '${TF-DOMAIN}';
 
 // ${TF-DOMAIN}';  'localhost';
 
-$config['smtp_server'] = 'localhost';
+$config['smtp_server'] = 'tls://smtp.javanut.com';
+//'localhost';
 
 // 25 on localhostt
-$config['smtp_port'] = 587;
+$config['smtp_port'] = 587; 
+
 //465;
 
 // provide an URL where a user can get support for this Roundcube installation
@@ -148,7 +150,7 @@ $config['username_domain'] = '${TF-DOMAIN}';
 
 // List of active plugins (in plugins/ directory)
 
-$config['plugins'] = ['archive', 'attachment_reminder', 'database_attachments', 'emoticons', 'enigma', 'jqueryui', 'password', 'zipdownload'];
+//$con fig['plugins'] = ['archive', 'attachment_reminder', 'database_attachments', 'emoticons', 'enigma', 'jqueryui', 'password', 'zipdownload'];
 
 // the default locale setting (leave empty for auto-detection)
 

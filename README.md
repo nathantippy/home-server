@@ -14,4 +14,9 @@ Small family or club server for inexpensive cloud hosting on ARM. Provides email
 
 6. run 03-aws-server-launch.sh, wait as the server is started.
 
+///////
 
+
+buy a domain..
+
+setup keys? automate this
