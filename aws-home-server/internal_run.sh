@@ -18,11 +18,11 @@ if [ "instructions" == "${TASK}" ]; then
 		echo "NEXT STEP:"
 		echo "           If this is the first run or the IP has changed, add the following DNS entries to your external DNS provider."
 	
-		echo "             MX Record     ${TF_VAR_email_domain}         mail.${TF_VAR_email_domain} "
-		echo "             MX Record     *.${TF_VAR_email_domain}       mail.${TF_VAR_email_domain} "		  	
-		echo "             A Record      ${TF_VAR_email_domain}         ${STATIC_IP}  "
-		echo "             A Record      mail.${TF_VAR_email_domain}    ${STATIC_IP}  "
-		echo "             A Record      *.${TF_VAR_email_domain}       ${STATIC_IP}   "
+		echo "             MX Record     ${TF_VAR_domain}         mail.${TF_VAR_domain} "
+		echo "             MX Record     *.${TF_VAR_domain}       mail.${TF_VAR_domain} "		  	
+		echo "             A Record      ${TF_VAR_domain}         ${STATIC_IP}  "
+		echo "             A Record      mail.${TF_VAR_domain}    ${STATIC_IP}  "
+		echo "             A Record      *.${TF_VAR_domain}       ${STATIC_IP}   "
 			
 		echo "           Once updated it make take up to 3 hours for the DNS records to propagate."	
 		echo "           After waiting the next step should be run with:   03-aws-home-server-build.sh"

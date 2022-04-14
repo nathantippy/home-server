@@ -32,19 +32,35 @@ variable "role_arn" {}
 variable "access_key" {}
 variable "secret_key" {}
 
+variable "volume_type" {
+	default = "sc1"
+}
+variable "volume_size" {
+	default = 128
+}
+variable "volume_iops" {
+	default = 250
+}
+variable "volume_throughput" {
+	default = 125
+}
+variable "restore_snapshot_id" {
+	default = "" #snap-07836810266f52dd2
+}
+
+output "restore_snapshot_id" {
+	value = var.restore_snapshot_id
+}
+
+
 locals {
-   key-name               = "home-server-ssh"
-   vpn_cidr               = "10.10.0.0/16"
+   key-name               = "home-server-${replace(var.domain,".","-")}-ssh"
+   vpn_cidr               = "10.10.10.0/24"
    
-   users_volume_type      = "gp3"
-   users_volume_size      = 80 # GB for all the server with room for all the users
-   users_volume_iops      = 3000
-   users_volume_thoughput = 125
-   
-   www_volume_type        = "gp3"
-   www_volume_size        = 80 # GB for all the server with room for all the users
-   www_volume_iops        = 3000
-   www_volume_thoughput   = 125
+   users_volume_type       = var.volume_type        #for drives faster or smaller than 125GB us gp3 else sc1 23G=125G
+   users_volume_size       = var.volume_size        # GB for all the server with room for all the users
+   users_volume_iops       = var.volume_iops        # 250 for sc1 and 16000 for gp3 3000 is free
+   users_volume_throughput = var.volume_throughput  # 125 is free with gp3, 7500 is max for sc1
       
 }
 
@@ -102,6 +118,14 @@ EOF
   }
 }
 
+
+resource "aws_secretsmanager_secret" "home_server" {
+    name = "home_server/${var.domain}"
+}
+
+output "home-server-secret-id" {
+  value = aws_secretsmanager_secret.home_server.id
+}
 output "ip-arn" {
 	value = aws_eip.primary-eip.id
 }
@@ -114,9 +138,12 @@ output "vpc-cidr" {
 output "vpc-id" {
     value = aws_vpc.home-server.id
 }
+
 output "user-data-volume-id" {
 	value = aws_ebs_volume.user-data.id
 }
+
+
 output "subnet-zone-a-id" {
 	value = aws_subnet.home-region-a.id
 }
@@ -153,43 +180,25 @@ resource "aws_kms_key" "home-server-user-data" {
   enable_key_rotation     = true
 }
 
-resource "aws_kms_key" "home-server-www-data" {
-  description             = "${var.domain} WWW Data EBS"
-  deletion_window_in_days = 7
-  enable_key_rotation     = true
-}
-
 
 resource "aws_ebs_volume" "user-data" {
   availability_zone = aws_subnet.home-region-a.availability_zone
-  encrypted         = true
-  
+  encrypted         = true  
+
+  snapshot_id       = (""==var.restore_snapshot_id || "none"==var.restore_snapshot_id) ? null : var.restore_snapshot_id
+
   type              = local.users_volume_type
   size              = local.users_volume_size
-  iops              = local.users_volume_iops
-  throughput        = local.users_volume_thoughput  
-    
-  kms_key_id        = aws_kms_key.home-server-user-data.arn
+  iops              = ("sc1"==local.users_volume_type) ? null : local.users_volume_iops
+  throughput        = ("sc1"==local.users_volume_type) ? null : local.users_volume_throughput   
+   
+  kms_key_id        = aws_kms_key.home-server-user-data.arn 
   
   tags = {
  	"Name" : "homeserver-users-${replace(var.domain,".","-")}" 
   } 
 }
-resource "aws_ebs_volume" "www-data" {
-  availability_zone = aws_subnet.home-region-a.availability_zone
-  encrypted         = true
-  
-  type              = local.www_volume_type
-  size              = local.www_volume_size
-  iops              = local.www_volume_iops
-  throughput        = local.www_volume_thoughput  
-    
-  kms_key_id        = aws_kms_key.home-server-www-data.arn
-  
-  tags = {
- 	"Name" : "homeserver-www-${replace(var.domain,".","-")}" 
-  } 
-}
+
 
 
 resource "aws_security_group" "home-server" { 

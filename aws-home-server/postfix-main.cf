@@ -23,6 +23,9 @@ smtpd_tls_session_cache_database = btree:$${data_directory}/smtpd_scache
 smtp_tls_session_cache_database = btree:$${data_directory}/smtp_scache
 
 
+virtual_alias_domains=${TF-VIRTUAL-ALIAS-DOMAINS}
+
+
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
 
@@ -45,7 +48,9 @@ inet_interfaces = all
 # do not use ipv6 due to email forwarding issues
 inet_protocols = ipv4
 
-home_mailbox = Maildir/
+#we want do not set these two, we use the default
+# home_mailbox = Maildir/
+# The default value used is    /var/mail/%u
 
 # limited to 9 sends per minute as protection against the production of spam.
 smtpd_client_message_rate_limit = 3
