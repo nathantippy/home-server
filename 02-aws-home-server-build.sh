@@ -1,7 +1,24 @@
 #!/bin/sh
 
 DOMAIN=${1:-"javanut.com"} # TODO: set to yourdomain.com
-DNS=${2:-"external"} # aws OR external
+ALIAS_DOMAIN=${2:-"none"}
+DNS=${3:-"external"} # aws OR external
+VOLUME_SIZE=${4:-"256"} # room to backup email plus full file share.
+VOLUME_TYPE=${5:-"sc1"}
+VOLUME_IOPS=${6:-"250"} # not used for sc1
+VOLUME_THROUGHPUT=${7:-"125"} # not used for sc1
+SNAPSHOT_ID=${8:-"none"}  #  snap-0bc1bde7ea68ccebf"}  
+
+
+if [ "apply" == "${DOMAIN}" ]; then
+    echo "bad argument"
+    exit -1
+fi
+if [ "destroy" == "${DOMAIN}" ]; then
+    echo "bad argument"
+    exit -1
+fi
+
 
 if [ "yourdomain.com" == "${DOMAIN}" ]; then
     read -e -p "Enter desired domain (you must already own this domain):" -i "yourdomain.com" DOMAIN
@@ -43,17 +60,18 @@ mv remote-state.tfvars run_instance
  
 
 # build
-docker build --build-arg access_key="${access_key}"\
-             --build-arg secret_key="${secret_key}"\
-             --build-arg region="${region}"\
-             --build-arg role_arn="${role_arn}"\
-             --build-arg domain="${DOMAIN}"\
-             --build-arg dns_impl="${DNS}"\
-             --build-arg user="$(id -u):$(id -g)"\
-             -t aws-home-server-build-launch .
+docker build --build-arg access_key="${access_key}" --build-arg secret_key="${secret_key}"\
+             --build-arg region="${region}" --build-arg role_arn="${role_arn}"\
+             --build-arg domain="${DOMAIN}" --build-arg dns_impl="${DNS}"\
+             --build-arg alias_domains="${ALIAS_DOMAIN}"\
+             --build-arg restore_snapshot_id="${SNAPSHOT_ID}"\
+             --build-arg volume_size="${VOLUME_SIZE}" --build-arg volume_type="${VOLUME_TYPE}"\
+             --build-arg volume_iops="${VOLUME_IOPS}" --build-arg volume_throughput="${VOLUME_THROUGHPUT}"\
+             --build-arg date="$(date -Iminutes)" --build-arg user="$(id -u):$(id -g)"\
+             -t aws-${DOMAIN}-server-build-launch .
 
 if [ "$?" -eq 0 ]; then
-    docker run --rm aws-home-server-build-launch instructions
+    docker run --rm aws-${DOMAIN}-server-build-launch instructions
 fi
 
 cd ..

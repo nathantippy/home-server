@@ -1,12 +1,13 @@
 #!/bin/sh
 
 TASK=${1:-"plan"}
+DOMAIN=${2:-"domain"}
 
 
 export LOCAL_FOLDER=$PWD/keep/  # exports the pub/pem files for connecting
 
 # --user "$(id -u):$(id -g)" 
-docker run --rm -v ${LOCAL_FOLDER}:/exports aws-home-server-build-launch ${TASK}
+docker run --rm -v ${LOCAL_FOLDER}:/exports aws-${DOMAIN}-server-build-launch ${TASK}
 
 
 
@@ -17,5 +18,3 @@ docker run --rm -v ${LOCAL_FOLDER}:/exports aws-home-server-build-launch ${TASK}
 
 
  
-echo "visit: http://javanut.com/roundcube/installer/"
-
