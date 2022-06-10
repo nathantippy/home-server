@@ -1,7 +1,7 @@
 /aws-init.tfstate
 /home-server-setup.sh
 /remote-state.tfvars
-/home-server-ssh.pem
-/home-server-ssh.pub
+/home-server*.pem
+/home-server*.pub
 /minecraft-server-ssh.pem
 /minecraft-server-ssh.pub

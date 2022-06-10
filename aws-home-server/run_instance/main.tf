@@ -43,6 +43,9 @@ variable "role_arn" {}
 variable "access_key" {}
 variable "secret_key" {}
 
+variable "use_old_secret" {
+	default = false
+}
 
 
 variable "apache2_memory_limit" {
@@ -66,18 +69,7 @@ variable "apache2_date_timezone" {
 	default = "America/Chicago"
 }
 
-variable "root_volume_iops" {
-	default = 3000  # 3000 is free, max is 16000 - not used for sc1
-}
-variable "root_volume_throughput" {
- 	default = 125  # 125 MB/s is free, max is 1000 - not used for sc1
-}
-variable "root_volume_type" {          
-	default = "gp3" 
-}
-variable "root_volume_size" {
- 	default = 48  # 8G is the minimum but we need room for lots of email, 125 is smallest for sc1	
-}
+
 
 locals {
    dns_count        = "aws"==var.dns_impl ?  1 : 0 # only set up route53 if dns_impl is set to aws
@@ -85,6 +77,12 @@ locals {
    key-name         = "home-server-${replace(var.domain,".","-")}-ssh"
    instance-type    = "t4g.micro"# "t4g. # nano .5G  micro 1G small 2G
    max-mailbox-size = 17179869184  # in bytes 16 GB, the default for gmail is 16.
+   
+   volume_iops       = 3000
+   volume_throughput = 125
+   volume_type       = "gp3"
+   volume_size       = 8
+      
 }
 
 data "aws_caller_identity" "current" {
@@ -166,7 +164,7 @@ resource "random_string" "nextcloud-pass" {
 	length  = 18
 	special = false
 	upper   = true
-	number  = true
+	numeric = true
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
@@ -177,7 +175,7 @@ resource "random_string" "admin-pass" {
 	length  = 18
 	special = false
 	upper   = true
-	number  = true
+	numeric  = true
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
@@ -188,7 +186,7 @@ resource "random_string" "nc-pg-pass" {
 	length  = 18
 	special = false
 	upper   = true
-	number  = true
+	numeric  = true
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
@@ -209,14 +207,31 @@ resource "aws_eip_association" "eip_assoc" {
 }
 
 output "command" {
-	value = "sudo ssh-keygen -f /root/.ssh/known_hosts -R ${data.terraform_remote_state.prev.outputs.ip}\nsudo ssh -o \"StrictHostKeyChecking no\" -i ./keep/home-server-ssh.pem admin@${data.terraform_remote_state.prev.outputs.ip} sudo ./startup_creds.sh"
+	value = <<EOF
+sudo ssh-keygen -f /root/.ssh/known_hosts -R ${data.terraform_remote_state.prev.outputs.ip}
+##
+## new install 
+sudo ssh -o "StrictHostKeyChecking no" -i ./keep/home-server-ssh-${replace(var.domain,".","-")}.pem admin@${data.terraform_remote_state.prev.outputs.ip} bash ./startup_from_new.sh
+##
+## resume from last backup
+sudo ssh -o "StrictHostKeyChecking no" -i ./keep/home-server-ssh-${replace(var.domain,".","-")}.pem admin@${data.terraform_remote_state.prev.outputs.ip} bash ./startup_from_backup.sh
+##
+## startup as is
+sudo ssh -o "StrictHostKeyChecking no" -i ./keep/home-server-ssh-${replace(var.domain,".","-")}.pem admin@${data.terraform_remote_state.prev.outputs.ip} bash ./startup_from_existing.sh
+##
+## full backup
+sudo ssh -o "StrictHostKeyChecking no" -i ./keep/home-server-ssh-${replace(var.domain,".","-")}.pem admin@${data.terraform_remote_state.prev.outputs.ip} bash ./full_backup.sh
+## shutdown
+sudo ssh -o "StrictHostKeyChecking no" -i ./keep/home-server-ssh-${replace(var.domain,".","-")}.pem admin@${data.terraform_remote_state.prev.outputs.ip} bash ./shutdown_clean.sh
+
+EOF
 
 # need to log in and start up the right script.
 
 }
 #  sudo zip letsencrypt.zip * -r -e  # should back this up since lets encrypt would prefer we only do this 5 per week  https://letsencrypt.org/docs/rate-limits/
 # cp to admin folder for safe keeping.
-# sudo scp -i ./keep/home-server-ssh.pem admin@3.139.30.133:/home/admin/letsencrypt.zip .
+# sudo scp -i ./keep/home-server-${replace(var.domain,".","-")}-ssh.pem admin@3.139.30.133:/home/admin/letsencrypt.zip .
 
 resource "aws_internet_gateway" "test-env-gw" {
   vpc_id = "${data.terraform_remote_state.prev.outputs.vpc-id}"
@@ -243,7 +258,7 @@ resource "aws_volume_attachment" "user-data" {  # TODO: we need snapshot backups
   instance_id = aws_instance.home-server.id
 }
 
-
+// TODO: if stopped we must terminate and rebuild..
 
 resource "aws_instance" "home-server" {
 	ami                    = data.aws_ami.most_recent_home-server.id
@@ -254,18 +269,16 @@ resource "aws_instance" "home-server" {
 
     subnet_id              = "${data.terraform_remote_state.prev.outputs.subnet-zone-a-id}"
 
-# TODO: this takes too long move root block out
-# TODO: do full test  but copy takes too long as well so we may move to va
 	root_block_device {
-		delete_on_termination = true
+		delete_on_termination = true 
 		encrypted             = true
 		kms_key_id            = aws_kms_key.home-server-root-ebs.arn
-		iops                  = ("sc1"==var.root_volume_type) ? null : var.root_volume_iops
-		throughput            = ("sc1"==var.root_volume_type) ? null : var.root_volume_throughput 
-		volume_type           = var.root_volume_type
-		volume_size           = var.root_volume_size	
+		iops                  = ("sc1"==local.volume_type) ? null : local.volume_iops
+		throughput            = ("sc1"==local.volume_type) ? null : local.volume_throughput 
+		volume_type           = local.volume_type
+		volume_size           = local.volume_size	
 		tags = {
-		 	"Name"    : "homeserver" 
+		 	"Name"    : "home-server-${replace(var.domain,".","-")}"
 		 	"Domain"  : var.domain
 		} 
 	
@@ -303,17 +316,42 @@ data "template_file" "postfix-main-cf" {
 	}
 }
 
+//TODO: fix terraarch licenses are no longer valid..
+
 locals {
-	admin_pass=random_string.admin-pass.result
-	nc_pg_pass=random_string.nc-pg-pass.result
+    // use the old version if found. 
+    //    only deleted if someone also deletes the install or changes the password
+	admin_pass=try(local.old_pass.admin_pass, random_string.admin-pass.result)  //andom_string.admin-pass.result
+	nc_pg_pass=try(local.old_pass.nc_pg_pass, random_string.nc-pg-pass.result)
 }
 
 output "admin_pass" {
 	value = local.admin_pass
+	sensitive = true
 }
 output "nc_pg_pass" {
 	value = local.nc_pg_pass
+	sensitive = true
 }
+
+
+
+locals {
+  old_pass = jsondecode(try(data.aws_secretsmanager_secret_version.secret-version[0].secret_string,
+                     "{\"admin_pass\":\"${random_string.admin-pass.result}\",\"nc_pg_pass\":\"${random_string.nc-pg-pass.result}\"}")) 
+}
+
+data "aws_secretsmanager_secret_version" "secret-version" {
+  count = 0 #var.use_old_secret ? 1 : 0
+  secret_id = data.terraform_remote_state.prev.outputs.home-server-secret-id
+}
+
+locals {
+  userId         = data.terraform_remote_state.prev.outputs.duplicati-user_id
+  userSecret     = data.terraform_remote_state.prev.outputs.duplicati-user_secret
+  backupBucketId = data.terraform_remote_state.prev.outputs.backup-bucket-id
+}
+
 
 resource "aws_secretsmanager_secret_version" "home_server_secrets" {
     secret_id     = data.terraform_remote_state.prev.outputs.home-server-secret-id
@@ -323,17 +361,38 @@ resource "aws_secretsmanager_secret_version" "home_server_secrets" {
                      })
 }
 
+data "template_file" "restore-nextcloud" {
+	template = file("${path.module}/full_restore.sh")
+	vars = {
+	    TF_USER_ID = local.userId
+	    TF_USER_SECRET = local.userSecret
+	    TF_BACKUP_BUCKET = local.backupBucketId
+	    TF_PASSWORD = local.admin_pass  # TODO: better password
+	}
+}
+
+data "template_file" "backup-nextcloud" {
+	template = file("${path.module}/full_backup.sh")
+	vars = {
+	    TF_USER_ID = local.userId
+	    TF_USER_SECRET = local.userSecret
+	    TF_BACKUP_BUCKET = local.backupBucketId
+	    TF_PASSWORD = local.admin_pass  # TODO: better password
+	}
+}
+
+
 data "template_file" "expect-admin" {
 	template = file("${path.module}/../expect-admin.txt")
 	vars = {
-	    ADMIN_PASS  = random_string.admin-pass.result 
+	    ADMIN_PASS  = local.admin_pass
 	}
 }
 
 data "template_file" "expect-pg" {
 	template = file("${path.module}/../pg_setup.sql")
 	vars = {
-	    NEXTCLOUD_PASSWORD = "password" # TODO: we need better password
+	    NEXTCLOUD_PASSWORD = local.nc_pg_pass #"password"
 	}
 }
 
@@ -346,15 +405,60 @@ data "template_file" "default-ssl-conf" {
 }
 
 
-data "template_file" "startup_creds_sh" {
-	template = file("${path.module}/startup_creds.sh")
+data "template_file" "startup_init_sh" {
+	template = file("${path.module}/startup_init.sh")
 	vars = {
-		TF-DOMAIN          = var.domain
-	    TF-DOMAIN-NAME     = replace(var.domain,".","_")
 	    EBS_DEVICE         = "/dev/nvme1n1"
-	    NOTE               = "one test"
 	}
 }
+data "template_file" "startup_letsencrypt_refresh_sh" {
+	template = file("${path.module}/startup_letsencrypt_refresh.sh")
+	vars = {
+	    TF-DOMAIN          = var.domain
+	}
+}
+data "template_file" "startup_from_backup_sh" {
+	template = file("${path.module}/startup_from_backup.sh")
+	vars = {
+		TF_BACKUP_BUCKET = local.backupBucketId	
+		TF_USER_ID = local.userId
+		TF_USER_SECRET = local.userSecret
+		TF_PASSWORD = local.admin_pass
+	}
+}
+data "template_file" "startup_from_existing_sh" {
+	template = file("${path.module}/startup_from_existing.sh")
+	vars = {
+	}
+}
+data "template_file" "startup_from_new_sh" {
+	template = file("${path.module}/startup_from_new.sh")
+	vars = {
+	}
+}
+data "template_file" "shutdown_clean_sh" {
+	template = file("${path.module}/shutdown_clean.sh")
+	vars = {
+	}
+}
+data "template_file" "cron_backup_sh" {
+	template = file("${path.module}/cron_backup.sh")
+	vars = {
+	}
+}
+
+
+#data "template_file" "startup_creds_sh" {
+#	template = file("${path.module}/startup_creds.sh")
+#	vars = {
+#		TF-DOMAIN          = var.domain
+#	    TF-DOMAIN-NAME     = replace(var.domain,".","_")
+#	    EBS_DEVICE         = "/dev/nvme1n1"
+#	    NOTE               = "one test"
+#	}
+#}
+
+
 data "template_file" "dovecot_10_ssl" {
 	template = file("${path.module}/dovecot-10-ssl.conf")
 	vars = {
@@ -368,6 +472,26 @@ resource "null_resource" "setup_instance" {
 
   depends_on = [aws_volume_attachment.user-data, aws_instance.home-server ]
   
+     provisioner "file" {
+        content = data.template_file.backup-nextcloud.rendered
+	    destination = "full_backup.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+    provisioner "file" {
+        content = data.template_file.restore-nextcloud.rendered
+	    destination = "full_restore.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
 
    provisioner "file" {
 	    content = data.template_file.expect-admin.rendered
@@ -439,7 +563,7 @@ resource "null_resource" "setup_instance" {
     } 
 
    provisioner "file" {
-        source = "${path.module}/users_backup.sh"
+        source = "${path.module}/users_backup.sh"        
 	    destination = "users_backup.sh"
 	    connection {
 	      type = "ssh"
@@ -449,7 +573,7 @@ resource "null_resource" "setup_instance" {
 	    }  
     }
     provisioner "file" {
-        source = "${path.module}/users_restore.sh"
+        source = "${path.module}/users_restore.sh"        
 	    destination = "users_restore.sh"
 	    connection {
 	      type = "ssh"
@@ -458,30 +582,11 @@ resource "null_resource" "setup_instance" {
 	      private_key = data.local_file.ssh-pem.content	 
 	    }  
     }
-    provisioner "file" {
-        source = "${path.module}/backup_nextcloud.sh"
-	    destination = "backup_nextcloud.sh"
-	    connection {
-	      type = "ssh"
-	      host = data.terraform_remote_state.prev.outputs.ip
-	      user = "admin"
-	      private_key = data.local_file.ssh-pem.content	 
-	    }  
-    }
-    provisioner "file" {
-        source = "${path.module}/restore_nextcloud.sh"
-	    destination = "restore_nextcloud.sh"
-	    connection {
-	      type = "ssh"
-	      host = data.terraform_remote_state.prev.outputs.ip
-	      user = "admin"
-	      private_key = data.local_file.ssh-pem.content	 
-	    }  
-    }
+
    
   provisioner "file" {
-        content = data.template_file.startup_creds_sh.rendered
-	    destination = "startup_creds.sh"
+        content = data.template_file.startup_init_sh.rendered
+	    destination = "startup_init.sh"
 	    connection {
 	      type = "ssh"
 	      host = data.terraform_remote_state.prev.outputs.ip
@@ -490,7 +595,73 @@ resource "null_resource" "setup_instance" {
 	  
 	    }  
    }
-
+   provisioner "file" {
+        content = data.template_file.startup_letsencrypt_refresh_sh.rendered
+	    destination = "startup_letsencrypt_refresh.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   provisioner "file" {
+        content = data.template_file.startup_from_backup_sh.rendered
+	    destination = "startup_from_backup.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   provisioner "file" {
+        content = data.template_file.startup_from_existing_sh.rendered
+	    destination = "startup_from_existing.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   provisioner "file" {
+        content = data.template_file.startup_from_new_sh.rendered
+	    destination = "startup_from_new.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   provisioner "file" {
+        content = data.template_file.shutdown_clean_sh.rendered
+	    destination = "shutdown_clean.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   provisioner "file" {
+        content = data.template_file.cron_backup_sh.rendered
+	    destination = "cron_backup.sh"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	  
+	    }  
+   }
+   
   provisioner "remote-exec" {
     connection {
       type = "ssh"
@@ -511,7 +682,16 @@ resource "null_resource" "setup_instance" {
 		      		      		      		      
                "sudo chmod +x users_backup.sh",
                "sudo chmod +x users_restore.sh",
- 
+               "sudo chmod +x full_backup.sh",
+               "sudo chmod +x full_restore.sh",
+			   "sudo chmod +x cron_backup.sh",
+			   "sudo chmod +x startup_from_backup.sh",
+			   "sudo chmod +x startup_from_new.sh",
+			   "sudo chmod +x startup_from_existing.sh",
+			   "sudo chmod +x startup_init.sh",
+               "sudo chmod +x startup_letsencrypt_refresh.sh",
+               "sudo chmod +x shutdown_clean.sh",
+  
 			   "sudo mv main.cf /etc/postfix/main.cf",
 			   "sudo mv 10-master.conf /etc/dovecot/conf.d/10-master.conf",
 			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",

@@ -48,8 +48,8 @@ inet_interfaces = all
 # do not use ipv6 due to email forwarding issues
 inet_protocols = ipv4
 
-#we want do not set these two, we use the default
-# home_mailbox = Maildir/
+#we want our email to appear in our home folder
+home_mailbox = Maildir/
 # The default value used is    /var/mail/%u
 
 # limited to 9 sends per minute as protection against the production of spam.

@@ -17,13 +17,13 @@ ARG region=us-east-2
 ARG user
 ARG dns_impl
 ARG domain
-ARG volume_type=sc1
+ARG volume_type=gp3
 ARG volume_size=128
 ARG volume_iops=250
 ARG volume_throughput=125
-ARG restore_snapshot_id=none
 ARG alias_domains
 
+# TODO: if the drive is smaller we should delete it so build works..
 
 # keep for image deployments
 
@@ -33,8 +33,8 @@ ENV TF_VAR_role_arn=$role_arn
 ENV TF_VAR_region=$region
 ENV TF_VAR_dns_impl=$dns_impl
 ENV TF_VAR_domain="$domain"
-ENV TF_VAR_restore_snapshot_id="$restore_snapshot_id"
 ENV TF_VAR_alias_domains="$alias_domains"
+
 
 # public ip terraform image will build a drive of this size.
 ENV TF_VAR_volume_type=$volume_type
@@ -70,12 +70,13 @@ COPY ./expect-admin.txt /
 
 COPY ./pg_setup.sql /
 
-RUN ssh-keygen -m PEM -t rsa -b 4096 -f home-server-ssh # build key early so we are unlikely to build it again.
-ENV TF_VAR_pub_key_file=home-server-ssh.pub
-ENV TF_VAR_pem_key_file=home-server-ssh
-RUN chown ${user} home-server-ssh.pub
-RUN chown ${user} home-server-ssh
+# home-server-${domain//./-}-ssh
 
+RUN ssh-keygen -m PEM -t rsa -b 4096 -f home-server-ssh-${domain} # build key early so we are unlikely to build it again.
+ENV TF_VAR_pub_key_file=home-server-ssh-${domain}.pub
+ENV TF_VAR_pem_key_file=home-server-ssh-${domain}
+RUN chown ${user} home-server-ssh-${domain}.pub
+RUN chown ${user} home-server-ssh-${domain}
 
 # terraform and remote state
 ADD public_ip public_ip
@@ -83,8 +84,6 @@ RUN terraform -chdir=./public_ip init -upgrade=true -reconfigure -backend-config
 #RUN terraform -chdir=./public_ip plan
 RUN terraform -chdir=./public_ip apply -auto-approve
 RUN terraform -chdir=./public_ip state pull > public_ip.tfstate # keep for the next step
-
-
 
 # both init and apply the public ips to lock this down
 # share instructions after this for taking ip and adding to DNS.

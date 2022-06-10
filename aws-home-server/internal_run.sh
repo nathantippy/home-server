@@ -30,14 +30,46 @@ if [ "instructions" == "${TASK}" ]; then
     
 else
 	#move keys out so we can use this to connect
-	cp home-server-ssh.pub exports/home-server-ssh.pub
-	cp home-server-ssh exports/home-server-ssh.pem
-	chown ${USER} exports/home-server-ssh.pub
-	chown ${USER} exports/home-server-ssh.pem
-	chmod 400 exports/home-server-ssh.pem
+	cp home-server-ssh-${TF_VAR_domain}.pub exports/home-server-ssh-${TF_VAR_domain//./-}.pub
+	cp home-server-ssh-${TF_VAR_domain} exports/home-server-ssh-${TF_VAR_domain//./-}.pem
+	chown ${USER} exports/home-server-ssh-${TF_VAR_domain//./-}.pub
+	chown ${USER} exports/home-server-ssh-${TF_VAR_domain//./-}.pem
+	chmod 400 exports/home-server-ssh-${TF_VAR_domain//./-}.pem
+	
+# check if secret exists
+aws secretsmanager describe-secret --secret-id home_server/${TF_VAR_domain} --output json
+FOUND_IT=$(aws secretsmanager describe-secret --secret-id home_server/${TF_VAR_domain} --output json 2>&1 | grep -c 'AWSCURRENT')
+if [ "${FOUND_IT}" -eq "0" ]; then
+    echo "DO NOT use old secret home_server/${TF_VAR_domain}  ${FOUND_IT}"
+	export TF_VAR_use_old_secret=false
+else
+    echo "ATTEMPT to use old secret home_server/${TF_VAR_domain}  ${FOUND_IT}"
+	export TF_VAR_use_old_secret=true
+fi
+
+	
+#variable "root_volume_iops" {
+#	default = 3000  # 3000 is free, max is 16000 - not used for sc1
+#}
+#variable "root_volume_throughput" {
+# 	default = 125  # 125 MB/s is free, max is 1000 - not used for sc1
+#}
+#variable "root_volume_type" {          #
+#	default = "gp3" 
+#}
+#variable "root_volume_size" {
+# 	default = 48  # 8G is the minimum but we need room for lots of email, 125 is smallest for sc1	
+#}
 	
 	# apply terraform
 	if [ "apply" == "${TASK}" ] || [ "destroy" == "${TASK}" ]; then   
+	   
+	    if [ "destroy" == "${TASK}" ]; then   
+	    
+	        echo "we need to move nextlcoud into maint mode: TODO: CAN WE DO THIS IN TF?"
+	    
+	    fi
+	
 	    cd run_instance
 	    terraform ${TASK} -auto-approve
 	else

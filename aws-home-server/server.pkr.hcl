@@ -135,7 +135,7 @@ build {
                 "sudo apt-get install xfsprogs=5.10.0-4 -y", # xfs - supports giant files
                 "sudo apt-get install rsync=3.2.3-4+deb11u1 -y",
    
-		        "sudo apt-get install fail2ban=0.11.2-2 -y", # testing email without this..
+		        "sudo apt-get install fail2ban=0.11.2-2 -y", 
 		        "sudo apt-get install iptables-persistent -y",
         		        
 		        ########      docker  https://www.techlear.com/blog/2021/10/01/how-to-install-docker-on-debian-11/		        
@@ -183,12 +183,14 @@ build {
 				"sudo sed -i \"s|#disable_plaintext_auth = yes|disable_plaintext_auth = no|g\" /etc/dovecot/conf.d/10-auth.conf",
 				"sudo sed -i \"s|auth_mechanisms = plain|auth_mechanisms = plain login|g\" /etc/dovecot/conf.d/10-auth.conf", 
 				
-				#delete block: we want to keep mail under var for drive mapping.             
-				#"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = maildir:~/Maildir|g\" /etc/dovecot/conf.d/10-mail.conf",
-				#"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = mbox:/var/mail/%u|g\" /etc/dovecot/conf.d/10-mail.conf",
-				#                                                               mail_location = mbox:~/mail:INBOX=/var/mail/%u:INDEX=/var/indexes/%u				
-								
-				"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = mbox:~/mail|g\" /etc/dovecot/conf.d/10-mail.conf",
+				#use this block to keep mail under user home folder           
+				"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = maildir:~/Maildir|g\" /etc/dovecot/conf.d/10-mail.conf",
+				# use this block to keep all mail under var				
+				#"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = mbox:~/mail|g\" /etc/dovecot/conf.d/10-mail.conf",
+
+                # other notes 
+	       	    #"sudo sed -i \"s|mail_location = mbox:~/mail:INBOX=/var/mail/%u|mail_location = mbox:/var/mail/%u|g\" /etc/dovecot/conf.d/10-mail.conf",
+		        #                 mail_location = mbox:~/mail:INBOX=/var/mail/%u:INDEX=/var/indexes/%u				
 				############################################################################################################################
 				############################################################################################################################
                 
@@ -222,8 +224,30 @@ build {
                 "sudo apt-get install php7.3-common php7.3-mbstring php7.3-xmlrpc php7.3-gd php7.3-intl php7.3-ldap php7.3-imagick php7.3-json php7.3-cli -y",
               
                 "sudo apt-get install postgresql postgresql-contrib -y",                                
-           
-                                
+                         
+     ## install imapsync ########## this only works on an intel box
+     #echo "Installing Dependencies"
+     #"sudo apt-get -y install git rcs make makepasswd cpanminus apt-file",
+     #"sudo apt-get -y install gcc libssl-dev libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl",
+     #"sudo apt-get -y install libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl",
+     #"sudo apt-get -y install libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl",
+     #"sudo apt-get -y install libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl",
+     #"sudo apt-get -y install libtest-requires-perl libtest-simple-perl libunicode-string-perl libencode-imaputf7-perl libfile-tail-perl libregexp-common-perl",
+     #"sudo apt-get -y install libregexp-common-email-address-perl libregexp-common-perl libregexp-common-time-perl libtest-deep-fuzzy-perl libtest-deep-perl",
+     #"sudo apt-get -y install libtest-deep-json-perl libtest-deep-perl libtest-deep-type-perl libtest-deep-unorderedpairs-perl libtest-modern-perl libtest-most-perl",
+     #echo "Installing required Python modules using CPAN"
+	 #"sudo cpanm Crypt::OpenSSL::RSA Crypt::OpenSSL::Random --force",
+	 #"sudo cpanm Mail::IMAPClient JSON::WebToken Test::MockObject", 
+	 #"sudo cpanm Unicode::String Data::Uniqid",
+     #echo "Downloading and building imapsync"
+     #"sudo git clone https://github.com/imapsync/imapsync.git",
+     #"sudo apt-file update",
+     #"cd imapsync && sudo mkdir -p dist",
+     #"sudo make install",
+     ##############################
+                
+                
+                
                 
 				#rust lang - move to later after drive mount
 				#"curl https://sh.rustup.rs -sSf | sh -s -- -y",

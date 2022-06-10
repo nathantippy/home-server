@@ -32,36 +32,24 @@ variable "role_arn" {}
 variable "access_key" {}
 variable "secret_key" {}
 
-variable "volume_type" {
-	default = "sc1"
-}
-variable "volume_size" {
-	default = 128
-}
 variable "volume_iops" {
-	default = 250
+	default = 3000  # 3000 is free, max is 16000 - not used for sc1
 }
 variable "volume_throughput" {
-	default = 125
+ 	default = 125  # 125 MB/s is free, max is 1000 - not used for sc1
 }
-variable "restore_snapshot_id" {
-	default = "" #snap-07836810266f52dd2
+variable "volume_type" {          
+	default = "gp3" 
+}
+variable "volume_size" {
+ 	default = 48  # 8G is the minimum but we need room for lots of email, 125 is smallest for sc1	
 }
 
-output "restore_snapshot_id" {
-	value = var.restore_snapshot_id
-}
 
 
 locals {
    key-name               = "home-server-${replace(var.domain,".","-")}-ssh"
    vpn_cidr               = "10.10.10.0/24"
-   
-   users_volume_type       = var.volume_type        #for drives faster or smaller than 125GB us gp3 else sc1 23G=125G
-   users_volume_size       = var.volume_size        # GB for all the server with room for all the users
-   users_volume_iops       = var.volume_iops        # 250 for sc1 and 16000 for gp3 3000 is free
-   users_volume_throughput = var.volume_throughput  # 125 is free with gp3, 7500 is max for sc1
-      
 }
 
 data "aws_caller_identity" "current" {
@@ -138,12 +126,9 @@ output "vpc-cidr" {
 output "vpc-id" {
     value = aws_vpc.home-server.id
 }
-
 output "user-data-volume-id" {
-	value = aws_ebs_volume.user-data.id
+	value = aws_ebs_volume.cheap-data.id
 }
-
-
 output "subnet-zone-a-id" {
 	value = aws_subnet.home-region-a.id
 }
@@ -174,31 +159,27 @@ resource "aws_subnet" "home-region-c" {
 }
 
 
-resource "aws_kms_key" "home-server-user-data" {
+resource "aws_kms_key" "home-server-cheap-data" {
   description             = "${var.domain} Users Data EBS"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 }
 
-
-resource "aws_ebs_volume" "user-data" {
+resource "aws_ebs_volume" "cheap-data" {
   availability_zone = aws_subnet.home-region-a.availability_zone
-  encrypted         = true  
+  encrypted         = true
+  
+  type              = var.volume_type
+  size              = var.volume_size
 
-  snapshot_id       = (""==var.restore_snapshot_id || "none"==var.restore_snapshot_id) ? null : var.restore_snapshot_id
-
-  type              = local.users_volume_type
-  size              = local.users_volume_size
-  iops              = ("sc1"==local.users_volume_type) ? null : local.users_volume_iops
-  throughput        = ("sc1"==local.users_volume_type) ? null : local.users_volume_throughput   
-   
-  kms_key_id        = aws_kms_key.home-server-user-data.arn 
+  iops              = ("sc1"==var.volume_type) ? null : var.volume_iops
+  throughput        = ("sc1"==var.volume_type) ? null : var.volume_throughput 
+  kms_key_id        = aws_kms_key.home-server-cheap-data.arn
   
   tags = {
  	"Name" : "homeserver-users-${replace(var.domain,".","-")}" 
   } 
 }
-
 
 
 resource "aws_security_group" "home-server" { 
@@ -338,7 +319,78 @@ resource "aws_security_group" "home-server" {
  }
 }
 
+########## setup for duplicati
 
+resource "aws_iam_user" "duplicati-user" {
+  name = "duplicati_${replace(var.domain,".","-")}"
+  tags = {
+  	"terraform-arch":"duplicati"
+  }
+}
+resource "aws_iam_access_key" "duplicati-user-key" {
+  user = aws_iam_user.duplicati-user.name
+}
+
+output "duplicati-user_id" {
+	value = aws_iam_access_key.duplicati-user-key.id
+}
+output "duplicati-user_secret" {
+	value = aws_iam_access_key.duplicati-user-key.secret
+	sensitive = true
+
+}
+
+resource "aws_iam_user_policy" "inline-duplicati-policy" {
+  name = "duplicati-policy"
+  user = aws_iam_user.duplicati-user.name
+ 
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [ "s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject" ],
+      "Effect": "Allow",
+      "Resource": [ "arn:aws:s3:::${local.backup_bucket_id}",
+                    "arn:aws:s3:::${local.backup_bucket_id}/*" ]
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "home-backup" {
+  bucket = aws_s3_bucket.home-backup.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# TODO: use this instead...  aws_s3_bucket_server_side_encryption_configuration
+locals {
+	backup_bucket_id = "${lower(aws_iam_access_key.duplicati-user-key.id)}-duplicati-${replace(var.domain,".","-")}"
+}
+
+output "backup-bucket-id" {
+	value = local.backup_bucket_id
+}
+
+resource "aws_s3_bucket" "home-backup" {
+  bucket = "${local.backup_bucket_id}"
+  acl    = "private"
+  versioning {
+    enabled = "true"
+  }
+
+  tags = {
+  	"terraform-arch":"duplicati"
+  }
+}
+
+########## end of duplicati setup
 
 
 # OPTIONAL: dns mapping, this may be external...??
