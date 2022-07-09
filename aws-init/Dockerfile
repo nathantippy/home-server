@@ -10,7 +10,8 @@ FROM base-builder-image
 COPY ./main.tf /
 COPY ./home-server-setup.tpl /
 COPY ./remote-state.tpl /
-RUN terraform init # using local unshared state, this is just to bootstrap further work and pre-download providers
+
+RUN TF_PLUGIN_CACHE_DIR=./terraform.d/plugin-cache terraform init # using local unshared state, this is just to bootstrap further work and pre-download providers
 
 COPY ./internal_run.sh /
 RUN chmod +x internal_run.sh

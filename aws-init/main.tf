@@ -72,6 +72,7 @@ resource "aws_iam_role" "home-server-role" {
   name               = "${local.home-server-user-name}-role"
   description        = "Allows access to build servers using terraform"
   assume_role_policy = data.aws_iam_policy_document.principal-identifiers.json
+  max_session_duration = 14400
   tags = {
   	"terraform-arch":"foundational"
   }
@@ -151,7 +152,7 @@ resource "aws_iam_role_policy" "home-server-packer-policy" {
 # TODO: restrict once we know what we need.
 data "aws_iam_policy_document" "server-launch-role-policy" {
   statement {
-    actions   = ["*"]
+    actions   = ["secretsmanager:*","ec2:*","kms:*","iam:*","s3:*"]
     resources = ["*"]
   }
 }
