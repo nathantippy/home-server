@@ -17,6 +17,15 @@ fi
 # only switch to the remote drive if it has not been added to fstab for mounting.                     
 if [ "$(grep -c 'second_drive xfs' /etc/fstab)" -eq 0 ]; then             
 
+        # setup swap first
+        sudo fallocate -l 6G /swapfile 
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=6144
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        # done with swap setup
+
+
         sudo chown admin:admin /etc/fstab
         #sudo echo "old fstab did not map the var"
         #sudo cat /etc/fstab
@@ -52,6 +61,16 @@ else
         echo "var already in fstab"     
         sudo mount -a  #this may take a little time.   
 fi
+
+
+
+
+
+
+
+
+
+
 
 
 

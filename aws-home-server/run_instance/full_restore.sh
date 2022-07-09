@@ -12,6 +12,7 @@ sudo bash ./users_restore.sh
 ## /mnt/second_drive/home
 ############################################################################
 echo "restore /mnt/second_drive/home --------------------------------------------------------"
+# TODO: old .ssh may need to be kept for access!!! simple rename command?
 sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/home --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
 
 ############################################################################

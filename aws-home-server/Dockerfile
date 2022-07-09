@@ -6,6 +6,12 @@ FROM base-builder-image
 ###### docker run -e ACCESS_KEY="xxxxx" -e SECRET_KEY="yyyy" home-builder
 #########
 
+ARG user
+# NOTE: if we want to re-run base-builder-image we should delete the old drive to ensure we have the new pub
+ENV TF_VAR_pub_key_file=home-server-ssh.pub
+RUN chown ${user} home-server-ssh.pub
+RUN chown ${user} home-server-ssh
+
 ARG date
 ENV LINE="-----------------------------------------------"
 RUN echo "${LINE} build: ${date} ${LINE}"
@@ -14,14 +20,13 @@ ARG access_key # user with limited rights which can assume the deploy_role_arn
 ARG secret_key # user with limited rights which can assume the deploy_role_arn
 ARG role_arn # role with all the needed access to setup the home server
 ARG region=us-east-2
-ARG user
 ARG dns_impl
-ARG domain
 ARG volume_type=gp3
 ARG volume_size=128
 ARG volume_iops=250
 ARG volume_throughput=125
 ARG alias_domains
+ARG domain
 
 # TODO: if the drive is smaller we should delete it so build works..
 
@@ -70,20 +75,12 @@ COPY ./expect-admin.txt /
 
 COPY ./pg_setup.sql /
 
-# home-server-${domain//./-}-ssh
-
-RUN ssh-keygen -m PEM -t rsa -b 4096 -f home-server-ssh-${domain} # build key early so we are unlikely to build it again.
-ENV TF_VAR_pub_key_file=home-server-ssh-${domain}.pub
-ENV TF_VAR_pem_key_file=home-server-ssh-${domain}
-RUN chown ${user} home-server-ssh-${domain}.pub
-RUN chown ${user} home-server-ssh-${domain}
-
 # terraform and remote state
 ADD public_ip public_ip
-RUN terraform -chdir=./public_ip init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
+RUN TF_PLUGIN_CACHE_DIR=../terraform.d/plugin-cache terraform -chdir=./public_ip init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
 #RUN terraform -chdir=./public_ip plan
-RUN terraform -chdir=./public_ip apply -auto-approve
-RUN terraform -chdir=./public_ip state pull > public_ip.tfstate # keep for the next step
+RUN TF_PLUGIN_CACHE_DIR=../terraform.d/plugin-cache terraform -chdir=./public_ip apply -auto-approve
+RUN TF_PLUGIN_CACHE_DIR=../terraform.d/plugin-cache terraform -chdir=./public_ip state pull > public_ip.tfstate # keep for the next step
 
 # both init and apply the public ips to lock this down
 # share instructions after this for taking ip and adding to DNS.
@@ -91,7 +88,15 @@ RUN terraform -chdir=./public_ip state pull > public_ip.tfstate # keep for the n
 
 ADD run_instance run_instance
 RUN cat run_instance/remote-state.tfvars
-RUN terraform -chdir="./run_instance" init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
+RUN TF_PLUGIN_CACHE_DIR=../terraform.d/plugin-cache terraform -chdir="./run_instance" init -upgrade=true -reconfigure -backend-config=./remote-state.tfvars
+
+
+
+COPY ./role_assume.sh /
+RUN chmod +x role_assume.sh
+
+COPY ./role_release.sh /
+RUN chmod +x role_release.sh
 
 COPY ./internal_run.sh /
 RUN chmod +x internal_run.sh

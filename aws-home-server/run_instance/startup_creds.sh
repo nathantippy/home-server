@@ -89,8 +89,12 @@ if [ -f /var/archive/nc_html_$${RESTORE_DATE}.tar.gz ] && [ -f /var/archive/nc_d
 else 
     echo "-------------------------- fresh install ----------------------------------"
     ###############
-    wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip 
-    mv nextcloud-19.0.13.zip nextcloud.zip
+    #wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip 
+    #mv nextcloud-19.0.13.zip nextcloud.zip
+    
+    wget https://download.nextcloud.com/server/releases/nextcloud-24.0.2.zip 
+	mv nextcloud-24.0.2.zip nextcloud.zip
+	
     if [ -f nextcloud.zip ]; then
              sudo rm -R /var/www/html/nextcloud
              sudo unzip -o nextcloud.zip -d /var/www/html/

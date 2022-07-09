@@ -27,7 +27,6 @@ provider "aws" {
 variable "domain" {}
 variable "region" {}
 variable "pub_key_file" {}
-variable "pem_key_file" {}
 variable "role_arn" {}
 variable "access_key" {}
 variable "secret_key" {}
@@ -59,11 +58,6 @@ data "aws_caller_identity" "current" {
 data "local_file" "pub-key" {
    filename = "../${var.pub_key_file}"
 }
-data "local_file" "ssh-pem" {
-   filename = "../${var.pem_key_file}"
-}
-
-
 resource "aws_key_pair" "deployer" {
   key_name   = local.key-name
   public_key = "${data.local_file.pub-key.content}"
@@ -172,8 +166,8 @@ resource "aws_ebs_volume" "cheap-data" {
   type              = var.volume_type
   size              = var.volume_size
 
-  iops              = ("sc1"==var.volume_type) ? null : var.volume_iops
-  throughput        = ("sc1"==var.volume_type) ? null : var.volume_throughput 
+  iops              = ("sc1"==var.volume_type || "st1"==var.volume_type) ? null : var.volume_iops
+  throughput        = ("sc1"==var.volume_type || "st1"==var.volume_type) ? null : var.volume_throughput 
   kms_key_id        = aws_kms_key.home-server-cheap-data.arn
   
   tags = {
@@ -369,7 +363,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "home-backup" {
   }
 }
 
-# TODO: use this instead...  aws_s3_bucket_server_side_encryption_configuration
+
 locals {
 	backup_bucket_id = "${lower(aws_iam_access_key.duplicati-user-key.id)}-duplicati-${replace(var.domain,".","-")}"
 }
@@ -378,15 +372,47 @@ output "backup-bucket-id" {
 	value = local.backup_bucket_id
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "home-backup" {
+  bucket = aws_s3_bucket.home-backup.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "AES256"
+    }
+  }
+}
+
 resource "aws_s3_bucket" "home-backup" {
   bucket = "${local.backup_bucket_id}"
   acl    = "private"
   versioning {
-    enabled = "true"
+    enabled = "false"
   }
 
   tags = {
   	"terraform-arch":"duplicati"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "home-backup-archive" {
+  bucket = aws_s3_bucket.home-backup-archive.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket" "home-backup-archive" {
+  bucket = "${local.backup_bucket_id}-archive"
+  acl    = "private"
+  versioning {
+    enabled = "false"
+  }
+
+  tags = {
+  	"terraform-arch":"archive"
   }
 }
 

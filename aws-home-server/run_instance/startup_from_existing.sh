@@ -50,6 +50,8 @@ if [ "$(cat crontab_new | grep -c 'cron_backup.sh')" -eq "0" ]; then
 	crontab crontab_new
 	rm -f crontab_new
 	sudo systemctl restart cron
+	# required to sync with PAM
+	sudo service cron restart
 fi
 echo "----- crontab list -----"
 crontab -l

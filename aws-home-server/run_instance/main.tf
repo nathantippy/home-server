@@ -37,6 +37,7 @@ data "terraform_remote_state" "prev" {
 
 variable "domain" {}
 variable "region" {}
+variable "pub_key_file" {}
 variable "pem_key_file" {}
 variable "dns_impl" {}
 variable "role_arn" {}
@@ -44,7 +45,7 @@ variable "access_key" {}
 variable "secret_key" {}
 
 variable "use_old_secret" {
-	default = false
+	default = true
 }
 
 
@@ -69,19 +70,21 @@ variable "apache2_date_timezone" {
 	default = "America/Chicago"
 }
 
-
+variable "instance_type" {
+	default = "t4g.medium"# "t4g. # nano .5G  (micro 1G minimum) small 2G medium 4G
+}
 
 locals {
    dns_count        = "aws"==var.dns_impl ?  1 : 0 # only set up route53 if dns_impl is set to aws
    
    key-name         = "home-server-${replace(var.domain,".","-")}-ssh"
-   instance-type    = "t4g.micro"# "t4g. # nano .5G  micro 1G small 2G
-   max-mailbox-size = 17179869184  # in bytes 16 GB, the default for gmail is 16.
+   instance-type    = var.instance_type
+   max-mailbox-size = 17179869184*2  # in bytes 32 GB, the default for gmail is 16.
    
-   volume_iops       = 3000
-   volume_throughput = 125
+   volume_iops       = 6000
+   volume_throughput = 250
    volume_type       = "gp3"
-   volume_size       = 8
+   volume_size       = 32
       
 }
 
@@ -168,7 +171,7 @@ resource "random_string" "nextcloud-pass" {
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
-    	private_key = sha512("${data.local_file.ssh-pem.content}")
+    	private_key = sha512("${data.local_file.ssh-pub.content}")
     }   
 }
 resource "random_string" "admin-pass" {
@@ -179,7 +182,7 @@ resource "random_string" "admin-pass" {
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
-    	private_key = sha512("${data.local_file.ssh-pem.content}")
+    	private_key = sha512("${data.local_file.ssh-pub.content}")
     }   
 }
 resource "random_string" "nc-pg-pass" {
@@ -190,7 +193,7 @@ resource "random_string" "nc-pg-pass" {
 	lower   = true
 	keepers = {
     	eip = "${data.terraform_remote_state.prev.outputs.ip}"
-    	private_key = sha512("${data.local_file.ssh-pem.content}")
+    	private_key = sha512("${data.local_file.ssh-pub.content}")
     }   
 }
 
@@ -293,10 +296,12 @@ resource "aws_instance" "home-server" {
 }
 
 
+data "local_file" "ssh-pub" {
+   filename = "../${var.pub_key_file}"
+}
 data "local_file" "ssh-pem" {
    filename = "../${var.pem_key_file}"
 }
-
 
 variable "alias-domains" {
     type = string
@@ -342,7 +347,7 @@ locals {
 }
 
 data "aws_secretsmanager_secret_version" "secret-version" {
-  count = 0 #var.use_old_secret ? 1 : 0
+  count = var.use_old_secret ? 1 : 0
   secret_id = data.terraform_remote_state.prev.outputs.home-server-secret-id
 }
 
@@ -369,6 +374,10 @@ data "template_file" "restore-nextcloud" {
 	    TF_BACKUP_BUCKET = local.backupBucketId
 	    TF_PASSWORD = local.admin_pass  # TODO: better password
 	}
+}
+
+output "backup-bucket-id" {
+	value=local.backupBucketId
 }
 
 data "template_file" "backup-nextcloud" {
@@ -670,6 +679,9 @@ resource "null_resource" "setup_instance" {
       private_key = data.local_file.ssh-pem.content
  
     }  
+    
+    # TODO: refactor this, we need to copy on every refresh since we loose the drives...
+    
     inline = [ "echo \"successful connection ssh admin@${data.terraform_remote_state.prev.outputs.ip} \"",
            
                "sudo chmod +x startup_creds.sh",
@@ -696,16 +708,10 @@ resource "null_resource" "setup_instance" {
 			   "sudo mv 10-master.conf /etc/dovecot/conf.d/10-master.conf",
 			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",
 	
-			   #apt-cache madison dovecot
-			   #apt list apache2 -a
-		#	   "sudo apt-get install ./duplicati_2.0.6.3-1_all.deb -y", #is this too long here?
 			   	
 			   "cat default-ssl.conf | sudo tee -a /etc/apache2/sites-enabled/000-default.conf",
 			   "rm default-ssl.conf",	
- 		
- 			#    "sudo mv nextcloud.conf /etc/apache2/sites-available/nextcloud.conf",
-			#    "sudo mv nextcloud-le-ssl.conf /etc/apache2/sites-available/nextcloud-le-ssl.conf",
-			   
+ 	
 			    
 			    "sudo sed -i \"s|memory_limit = 128M|memory_limit = ${var.apache2_memory_limit}|g\" /etc/php/7.3/apache2/php.ini",
 				"sudo sed -i \"s|upload_max_filesize = 2M|upload_max_filesize = ${var.apache2_upload_max_filesize}|g\" /etc/php/7.3/apache2/php.ini",
@@ -715,24 +721,10 @@ resource "null_resource" "setup_instance" {
 				"sudo sed -i \"s|/etc/ssl/certs/ssl-cert-snakeoil.pem|/etc/letsencrypt/live/${var.domain}/fullchain.pem|g\" /etc/apache2/sites-available/default-ssl.conf",
                 "sudo sed -i \"s|/etc/ssl/private/ssl-cert-snakeoil.key|/etc/letsencrypt/live/${var.domain}/privkey.pem|g\" /etc/apache2/sites-available/default-ssl.conf",
 			
-			
 				
 				"sudo systemctl start apache2",
 				"sudo systemctl enable apache2",
-				
-
-		# only do this for FRESH install/?????		
-		#		"cat pg_setup.sql | sudo -u postgres psql && rm pg_setup.sql",
-						      
-			
-			# TODO: test single domain working
-			# TODO: add multiple domains
-			
-			
- 		                        
-              #  sudo /sbin/adduser nate
-            # map drive and check nextcloud...
-            
+			           
    
 				  # this does not appear to be supported on AWS 
 				  # NOTE: DO NOT CALL THIS: sudo hostnamectl set-hostname ${var.email_domain}               

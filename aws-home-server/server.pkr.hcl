@@ -211,8 +211,11 @@ build {
 				"sudo a2enmod mime", 
 				"sudo a2enmod ssl",
                 
-				"wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip", 
-				"mv nextcloud-19.0.13.zip nextcloud.zip",
+		#		"wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip", 
+		#		"mv nextcloud-19.0.13.zip nextcloud.zip",
+				"wget https://download.nextcloud.com/server/releases/nextcloud-23.0.6.zip", 
+				"mv nextcloud-23.0.6.zip nextcloud.zip",
+				# 23.0.6  vs 24.0.2
 				
 				"wget https://github.com/vector-im/element-web/releases/download/v1.9.6-rc.1/element-v1.9.6-rc.1.tar.gz",
 				"mv element-v1.9.6-rc.1.tar.gz element.tar.gz",
@@ -220,33 +223,35 @@ build {
                 "sudo wget -qO - https://packages.sury.org/php/apt.gpg | sudo apt-key add -",
                 "sudo echo \"deb https://packages.sury.org/php/ $(lsb_release -sc) main\" | sudo tee /etc/apt/sources.list.d/php.list",
                 "sudo apt update",
-			    "sudo apt-get install php7.3 libapache2-mod-php7.3 php7.3-curl php7.3-xml php7.3-zip php7.3-mysql php7.3-pgsql php7.3-cgi  php7.3-mysql -y",
-                "sudo apt-get install php7.3-common php7.3-mbstring php7.3-xmlrpc php7.3-gd php7.3-intl php7.3-ldap php7.3-imagick php7.3-json php7.3-cli -y",
-              
+                
+                "sudo apt-get install php7.4 libapache2-mod-php7.4 php7.4-curl php7.4-xml php7.4-zip php7.4-mysql php7.4-pgsql php7.4-cgi  php7.4-mysql -y",
+                "sudo apt-get install php7.4-common php7.4-mbstring php7.4-xmlrpc php7.4-gd php7.4-intl php7.4-ldap php7.4-imagick php7.4-json php7.4-cli -y",
+			 
                 "sudo apt-get install postgresql postgresql-contrib -y",                                
                          
      ## install imapsync ########## this only works on an intel box
      #echo "Installing Dependencies"
-     #"sudo apt-get -y install git rcs make makepasswd cpanminus apt-file",
-     #"sudo apt-get -y install gcc libssl-dev libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl",
-     #"sudo apt-get -y install libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl",
-     #"sudo apt-get -y install libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl",
-     #"sudo apt-get -y install libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl",
-     #"sudo apt-get -y install libtest-requires-perl libtest-simple-perl libunicode-string-perl libencode-imaputf7-perl libfile-tail-perl libregexp-common-perl",
-     #"sudo apt-get -y install libregexp-common-email-address-perl libregexp-common-perl libregexp-common-time-perl libtest-deep-fuzzy-perl libtest-deep-perl",
-     #"sudo apt-get -y install libtest-deep-json-perl libtest-deep-perl libtest-deep-type-perl libtest-deep-unorderedpairs-perl libtest-modern-perl libtest-most-perl",
+     
+     "sudo apt-get -y install git rcs make makepasswd cpanminus apt-file gcc libssl-dev libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl",
+     "sudo apt-get -y install libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl",
+     "sudo apt-get -y install libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl libencode-imaputf7-perl libfile-tail-perl libregexp-common-perl",
+     "sudo apt-get -y install libregexp-common-email-address-perl libregexp-common-perl libregexp-common-time-perl libtest-deep-fuzzy-perl libtest-deep-perl libtest-deep-json-perl libtest-deep-perl libtest-deep-type-perl libtest-deep-unorderedpairs-perl libtest-modern-perl libtest-most-perl",
+     
      #echo "Installing required Python modules using CPAN"
-	 #"sudo cpanm Crypt::OpenSSL::RSA Crypt::OpenSSL::Random --force",
-	 #"sudo cpanm Mail::IMAPClient JSON::WebToken Test::MockObject", 
-	 #"sudo cpanm Unicode::String Data::Uniqid",
+	
+	 "sudo cpanm Crypt::OpenSSL::RSA Crypt::OpenSSL::Random --force",
+	 "sudo cpanm Mail::IMAPClient JSON::WebToken Test::MockObject", 
+	 "sudo cpanm Unicode::String Data::Uniqid",
+     
      #echo "Downloading and building imapsync"
-     #"sudo git clone https://github.com/imapsync/imapsync.git",
-     #"sudo apt-file update",
-     #"cd imapsync && sudo mkdir -p dist",
-     #"sudo make install",
+     
+     "sudo git clone https://github.com/imapsync/imapsync.git",
+     "sudo apt-file update",
+     "cd imapsync && sudo mkdir -p dist",
+     "sudo git checkout tags/imapsync-1.836",
+     "sudo make install",
      ##############################
-                
-                
+                                
                 
                 
 				#rust lang - move to later after drive mount

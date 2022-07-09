@@ -17,12 +17,15 @@ sudo service postgresql status
 
     echo "-------------------------- fresh install ----------------------------------"
     ###############
-    if [ -f nextcloud-19.0.13.zip ]; then
-        echo "found nextcloud-19.0.13.zip"
+    # 19.0.13
+    # 24.0.2
+	
+    if [ -f nextcloud-24.0.2.zip ]; then
+        echo "found nextcloud-24.0.2.zip"
     else
-        wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip 
+        wget https://download.nextcloud.com/server/releases/nextcloud-24.0.2.zip 
     fi
-    cp -f nextcloud-19.0.13.zip nextcloud.zip
+    cp -f nextcloud-24.0.2.zip nextcloud.zip
     
     sudo rm -f -R /var/www/html/nextcloud
     sudo unzip -o nextcloud.zip -d /var/www/html/
@@ -73,9 +76,15 @@ if [ "$(cat crontab_new | grep -c 'cron_backup.sh')" -eq "0" ]; then
 	crontab crontab_new
 	rm -f crontab_new
 	sudo systemctl restart cron
+	# required to sync with PAM
+	sudo service cron restart
 fi
 echo "----- crontab list -----"
 crontab -l
+
+
+
+
 
 
 
