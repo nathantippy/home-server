@@ -315,7 +315,7 @@ data "template_file" "postfix-main-cf" {
 		TF-HOSTNAME              = "mail.${var.domain}"
 		TF-DOMAIN                = var.domain
 		
-		TF-VIRTUAL-ALIAS-DOMAINS = "none"==var.alias-domains ? "" : var.alias-domains // "domain2.com, domain3.com"
+		TF-VIRTUAL-ALIAS-DOMAINS = "none"==var.alias-domains ? "" : ", ${var.alias-domains}" // "domain2.com, domain3.com"
 		TF-PRIVATE-CIDR          = data.terraform_remote_state.prev.outputs.vpc-cidr
 		TF-MAX-MAILBOX_SIZE      = local.max-mailbox-size # this limits risk and can be bumpted up as needed.
 	}
