@@ -309,6 +309,13 @@ variable "alias-domains" {
 
 }
 
+locals {
+  
+  virtual_domains_file = "%{ for x in split(",",replace(var.alias-domains, " ", "") ) } ${x}  #default \n%{ endfor } "
+
+}
+
+
 data "template_file" "postfix-main-cf" {
 	template = file("${path.module}/../postfix-main.cf")
 	vars = {
@@ -524,6 +531,19 @@ resource "null_resource" "setup_instance" {
 	    }  
    }      
 
+
+   provisioner "file" {
+	    content = local.virtual_domains_file
+	    destination = "virtual_domains" # /etc/postfix/
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content
+	    }  
+   }
+
+
    provisioner "file" {
 	    content = data.template_file.postfix-main-cf.rendered
 	    destination = "main.cf" # /etc/postfix/
@@ -704,15 +724,19 @@ resource "null_resource" "setup_instance" {
                "sudo chmod +x startup_letsencrypt_refresh.sh",
                "sudo chmod +x shutdown_clean.sh",
   
+               "sudo mv virtual_domains /etc/postfix/virtual_domains",
+               "/usr/sbin/postmap /etc/postfix/virtual_domains", # generates virtual_domains.db
+               
+               #https://blog.tinned-software.net/setup-postfix-for-multiple-domains/
+               #https://www.binarytides.com/install-spamassassin-with-postfix-dovecot/
+               
 			   "sudo mv main.cf /etc/postfix/main.cf",
 			   "sudo mv 10-master.conf /etc/dovecot/conf.d/10-master.conf",
 			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",
-	
-			   	
+				   	
 			   "cat default-ssl.conf | sudo tee -a /etc/apache2/sites-enabled/000-default.conf",
 			   "rm default-ssl.conf",	
- 	
-			    
+ 				    
 			    "sudo sed -i \"s|memory_limit = 128M|memory_limit = ${var.apache2_memory_limit}|g\" /etc/php/7.3/apache2/php.ini",
 				"sudo sed -i \"s|upload_max_filesize = 2M|upload_max_filesize = ${var.apache2_upload_max_filesize}|g\" /etc/php/7.3/apache2/php.ini",
 				"sudo sed -i \"s|post_max_size = 8M|post_max_size = ${var.apache2_post_max_size}|g\" /etc/php/7.3/apache2/php.ini",
