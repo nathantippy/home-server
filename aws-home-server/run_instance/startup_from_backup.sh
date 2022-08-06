@@ -20,7 +20,14 @@ sudo service postgresql status
   
 # ensure apache2 is up in running.
 sudo systemctl restart apache2
-  
+ 
+ ## ensure we have the indexes on a new install for best performance.
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-primary-keys
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-indices
+ 
+#sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --on
+#sudo -u www-data php /var/www/html/nextcloud/occ db:convert-filecache-bigint
+#sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off 
  
 # for testing only, remove later.
 #sudo apt-get install telnet -y

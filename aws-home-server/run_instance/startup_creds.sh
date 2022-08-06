@@ -29,6 +29,7 @@ if [ "$(grep -c 'var xfs' /etc/fstab)" -eq 0 ]; then
         sudo umount ${EBS_DEVICE}
                                 
         sudo echo "${EBS_DEVICE} /var xfs  defaults,nofail   0    0 " >> /etc/fstab 
+        sudo echo "/swapfile none swap sw 0 0" >> /etc/fstab
         echo "adding var to fstab"
         sudo mount -a  #this may take a little time.
 

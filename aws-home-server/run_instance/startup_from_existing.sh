@@ -18,6 +18,7 @@ sudo systemctl start apache2
 sudo systemctl enable apache2
 
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:data-fingerprint
+sudo -u www-data php /var/www/html/nextcloud/occ db:convert-filecache-bigint
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off
 
 # ensure caches match what we have on the drive
@@ -26,7 +27,9 @@ sudo -u www-data php /var/www/html/nextcloud/occ files:scan-app-data
 # check for Nextcloud updates
 echo "Nextcloud apps are checked for updates..."
 sudo -u www-data php /var/www/html/nextcloud/occ app:update --all
-  
+## ensure we have the indexes on a new install for best performance.
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-primary-keys
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-indices  
 
 #sudo systemctl start apache2
   

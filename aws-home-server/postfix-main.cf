@@ -22,9 +22,7 @@ smtpd_tls_security_level=may
 smtpd_tls_session_cache_database = btree:$${data_directory}/smtpd_scache
 smtp_tls_session_cache_database = btree:$${data_directory}/smtp_scache
 
-
-virtual_alias_domains=${TF-VIRTUAL-ALIAS-DOMAINS}
-
+virtual_alias_domains = hash:/etc/postfix/virtual_domains
 
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.

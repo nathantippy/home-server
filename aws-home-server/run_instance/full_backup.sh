@@ -47,6 +47,12 @@ fi
 
 sudo duplicati-cli backup s3://${TF_BACKUP_BUCKET}/var "/mnt/second_drive/var" --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --zip-compression-level=9 --zip-compression-zip64
 
+
+# before we turn off maint mode we must check if certs must be upgraded.
+bash ./startup_letsencrypt_refresh.sh
+sudo service apache2 start
+
+
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off
 
 

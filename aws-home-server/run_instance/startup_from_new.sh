@@ -16,16 +16,14 @@ sudo systemctl restart dovecot.service
 sudo service postgresql status
 
     echo "-------------------------- fresh install ----------------------------------"
-    ###############
-    # 19.0.13
-    # 24.0.2
+    ########
 	
-    if [ -f nextcloud-24.0.2.zip ]; then
-        echo "found nextcloud-24.0.2.zip"
+    if [ -f nextcloud-24.0.3.zip ]; then
+        echo "found nextcloud-24.0.3.zip"
     else
-        wget https://download.nextcloud.com/server/releases/nextcloud-24.0.2.zip 
+        wget https://download.nextcloud.com/server/releases/nextcloud-24.0.3.zip 
     fi
-    cp -f nextcloud-24.0.2.zip nextcloud.zip
+    cp -f nextcloud-24.0.3.zip nextcloud.zip
     
     sudo rm -f -R /var/www/html/nextcloud
     sudo unzip -o nextcloud.zip -d /var/www/html/
@@ -41,7 +39,15 @@ sudo chown -R www-data:www-data /var/www/html/nextcloud/ && sudo chmod -R 755 /v
 sudo systemctl start apache2
 sudo systemctl enable apache2
 
+## ensure we have the indexes on a new install for best performance.
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-primary-keys
+sudo -u www-data php /var/www/html/nextcloud/occ db:add-missing-indices
+
 #sudo -u www-data php /var/www/html/nextcloud/occ maintenance:data-fingerprint
+#sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off
+
+#sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --on
+#sudo -u www-data php /var/www/html/nextcloud/occ db:convert-filecache-bigint
 #sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off
 
 # ensure caches match what we have on the drive

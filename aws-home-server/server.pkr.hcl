@@ -144,6 +144,7 @@ build {
 				"sudo apt-get update -y -qq",
  				"sudo apt-get install docker-ce docker-ce-cli containerd.io -y",
                 
+        
                 
 				####################################################################################################################
 				# we setup the mail server late to ensure that /etc/resolv.conf is done changing so postfix can resolve dns entries
@@ -159,12 +160,11 @@ build {
                 "sudo mv temp.conf /etc/host.conf",
                 "cat /etc/host.conf",                
 				"sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix=3.5.6-1+b1 -y",
-				"sudo sed -i \"s|#smtps |smtps |g\" /etc/postfix/master.cf", #turns on port 465 for TLS
-				"sudo sed -i \"s|#smtpd |smtpd |g\" /etc/postfix/master.cf", #turns on email to correct destination
-				"sudo sed -i \"s|#submission |submission |g\" /etc/postfix/master.cf", #turns on port 587 for TLS
+											
 				"sudo mkdir -p /etc/postfix/sasl_passwd",
 				"sudo /usr/sbin/postmap /etc/postfix/sasl_passwd",
 				"sudo postconf -n",
+					
 				############################################################################################################################
                 "apt-cache policy dovecot",
                 
@@ -175,9 +175,10 @@ build {
                 "sudo apt-get install dovecot-lucene=${var.dovecot_version} -y",   #apt-cache policy
 			    "sudo apt-get install dovecot-gssapi=${var.dovecot_version} -y", 
 			    "sudo apt-get install dovecot-managesieved=${var.dovecot_version} -y",
-			    "sudo apt-get install dovecot-sieve=${var.dovecot_version} -y",			    
+			    "sudo apt-get install dovecot-sieve=${var.dovecot_version} -y",			
+			    "sudo apt-get install dovecot-lmtpd=${var.dovecot_version} -y",  # if broken try remove and install  
 			    "sudo apt-get install dovecot-solr=${var.dovecot_version} -y",       #  collides with postfix dovecot-submissiond -y",
-                
+                              
                 "sudo apt-get install libsasl2-2 libsasl2-modules sasl2-bin -y", 
 				"sudo sed -i \"s|#listen = |listen = |g\" /etc/dovecot/dovecot.conf",           
 				"sudo sed -i \"s|#disable_plaintext_auth = yes|disable_plaintext_auth = no|g\" /etc/dovecot/conf.d/10-auth.conf",
@@ -194,9 +195,12 @@ build {
 				############################################################################################################################
 				############################################################################################################################
                 
-                
                 "sudo apt-get install cockpit -y",                
+                     
+			     # fix crontab
+			    "sudo apt-get -y install libpam-pwquality",     
                 "sudo sed -i \"s|pam.deny.so|pam_pwquality.so retry=5 minlen=9 maxrepeat=5 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 gecoscheck=1 reject_username|g\" /etc/pam.d/common-password", #strong passwords               
+			    "sudo service cron restart",
 
                 # download the backup service and install it
                 "wget https://updates.duplicati.com/beta/duplicati_2.0.6.3-1_all.deb",
@@ -210,12 +214,6 @@ build {
 				"sudo a2enmod dir",
 				"sudo a2enmod mime", 
 				"sudo a2enmod ssl",
-                
-		#		"wget https://download.nextcloud.com/server/releases/nextcloud-19.0.13.zip", 
-		#		"mv nextcloud-19.0.13.zip nextcloud.zip",
-				"wget https://download.nextcloud.com/server/releases/nextcloud-23.0.6.zip", 
-				"mv nextcloud-23.0.6.zip nextcloud.zip",
-				# 23.0.6  vs 24.0.2
 				
 				"wget https://github.com/vector-im/element-web/releases/download/v1.9.6-rc.1/element-v1.9.6-rc.1.tar.gz",
 				"mv element-v1.9.6-rc.1.tar.gz element.tar.gz",
@@ -226,22 +224,27 @@ build {
                 
                 "sudo apt-get install php7.4 libapache2-mod-php7.4 php7.4-curl php7.4-xml php7.4-zip php7.4-mysql php7.4-pgsql php7.4-cgi  php7.4-mysql -y",
                 "sudo apt-get install php7.4-common php7.4-mbstring php7.4-xmlrpc php7.4-gd php7.4-intl php7.4-ldap php7.4-imagick php7.4-json php7.4-cli -y",
-			 
+			    # local memory cache used by nextcloud
+                "sudo apt-get install php7.4-apcu -y",
+                
                 "sudo apt-get install postgresql postgresql-contrib -y",                                
                          
      ## install imapsync ########## this only works on an intel box
-     #echo "Installing Dependencies"
+     #echo "Installing Dependencies for imapsync AND spamassassin"
      
      "sudo apt-get -y install git rcs make makepasswd cpanminus apt-file gcc libssl-dev libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl",
      "sudo apt-get -y install libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl",
      "sudo apt-get -y install libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl libencode-imaputf7-perl libfile-tail-perl libregexp-common-perl",
      "sudo apt-get -y install libregexp-common-email-address-perl libregexp-common-perl libregexp-common-time-perl libtest-deep-fuzzy-perl libtest-deep-perl libtest-deep-json-perl libtest-deep-perl libtest-deep-type-perl libtest-deep-unorderedpairs-perl libtest-modern-perl libtest-most-perl",
      
-     #echo "Installing required Python modules using CPAN"
-	
+     #echo "Installing required Python/spamassasin modules using CPAN"	
 	 "sudo cpanm Crypt::OpenSSL::RSA Crypt::OpenSSL::Random --force",
 	 "sudo cpanm Mail::IMAPClient JSON::WebToken Test::MockObject", 
 	 "sudo cpanm Unicode::String Data::Uniqid",
+  
+     "sudo cpanm Net::DNS NetAddr::IP --force", # required for spamassasin
+  
+           #############################################
      
      #echo "Downloading and building imapsync"
      
@@ -250,6 +253,24 @@ build {
      "cd imapsync && sudo mkdir -p dist",
      "sudo git checkout tags/imapsync-1.836",
      "sudo make install",
+     
+      #############################################
+				"sudo apt-get install spamassassin -y",
+				"sudo apt-get install spamc -y",
+                "sudo sed -i \"s|ENABLED=0|ENABLED=1|g\" /etc/default/spamassassin",
+                "sudo sed -i \"s|CRON=0|CRON=1|g\" /etc/default/spamassassin",
+                "sudo groupadd spamd",
+                "sudo useradd -g spamd -s /bin/false -d /var/log/spamassassin spamd",
+                "sudo mkdir /var/log/spamassassin",
+                "sudo chown spamd:spamd /var/log/spamassassin",
+                
+                "sudo service spamassassin start -y",
+                # sudo service spamassassin status
+                # spamassassin --version
+                # sudo netstat -ntpl	
+                # update the filters, run this on crontab nightly but probably not needed if CRON=1
+                "sudo sa-update && sudo service spamassassin reload",		
+     
      ##############################
                                 
                 

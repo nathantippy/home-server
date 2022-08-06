@@ -47,7 +47,9 @@ variable "secret_key" {}
 variable "use_old_secret" {
 	default = true
 }
-
+variable "php_version" {
+	default = "7.4"
+}
 
 variable "apache2_memory_limit" {
     type = string
@@ -79,12 +81,13 @@ locals {
    
    key-name         = "home-server-${replace(var.domain,".","-")}-ssh"
    instance-type    = var.instance_type
-   max-mailbox-size = 17179869184*2  # in bytes 32 GB, the default for gmail is 16.
+   max-mailbox-size = 17179869184*4  # in bytes 64 GB, the default for gmail is 16.
    
-   volume_iops       = 6000
+   # TODO: to save more we can use sc1 but bank them with gluster to cut the price in half.
+   volume_iops       = 3000  # was 6000 causing 14$ per month, now testing 3000 for new releases.
    volume_throughput = 250
    volume_type       = "gp3"
-   volume_size       = 32
+   volume_size       = 24  # was 32 but we do not need that much
       
 }
 
@@ -482,6 +485,17 @@ data "template_file" "dovecot_10_ssl" {
 	}
 }
 
+locals {
+
+default_sieve = <<EOF
+require ["fileinto", "mailbox"];
+
+if header :contains "X-Spam-Flag" "YES" {
+        fileinto :create "Junk";
+}	
+EOF
+
+}
 
 
 resource "null_resource" "setup_instance" { 
@@ -508,6 +522,18 @@ resource "null_resource" "setup_instance" {
 	      private_key = data.local_file.ssh-pem.content	 
 	    }  
     }
+
+    provisioner "file" {
+        content = local.default_sieve
+	    destination = "default.sieve"
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+
 
    provisioner "file" {
 	    content = data.template_file.expect-admin.rendered
@@ -578,7 +604,30 @@ resource "null_resource" "setup_instance" {
 	      private_key = data.local_file.ssh-pem.content	 
 	    }  
     }
+
+   provisioner "file" {
+        source = "${path.module}/postfix_master.cf"
+	    destination = "master.cf" # /etc/postfix/master.cf
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+
    
+   provisioner "file" {
+        source = "${path.module}/spam_local.cf"
+	    destination = "spam_local.cf" # /etc/spamassassin/local.cf
+	    connection {
+	      type = "ssh"
+	      host = data.terraform_remote_state.prev.outputs.ip
+	      user = "admin"
+	      private_key = data.local_file.ssh-pem.content	 
+	    }  
+    }
+    
     provisioner "file" {
         content = data.template_file.dovecot_10_ssl.rendered
 	    destination = "10-ssl.conf" # /etc/dovecot/conf.d/
@@ -699,8 +748,9 @@ resource "null_resource" "setup_instance" {
       private_key = data.local_file.ssh-pem.content
  
     }  
-    
-    # TODO: refactor this, we need to copy on every refresh since we loose the drives...
+        
+    # copy and refresh on every run, each step must be omnipotent 
+    tiggers = { always = timestamp() }
     
     inline = [ "echo \"successful connection ssh admin@${data.terraform_remote_state.prev.outputs.ip} \"",
            
@@ -711,6 +761,14 @@ resource "null_resource" "setup_instance" {
 
                "sudo chmod +x expect-admin.run",
 		       "sudo ./expect-admin.run && rm ./expect-admin.run", # do not enable until we have the password
+		      	
+		      # setup the spam sieve rules	
+		       "mkdir -p /var/lib/dovecot/sieve/",	
+		       "sudo mv default.sieve /var/lib/dovecot/sieve/default.sieve",	
+		       "sudo sievec /var/lib/dovecot/sieve/default.sieve",
+		       "sudo chown -R dovecot:dovecot /var/lib/dovecot/sieve/*",	
+		       "sudo chmod -R 755 /var/lib/dovecot/sieve",		      		      		      
+		      		      		      		      
 		      		      		      		      
                "sudo chmod +x users_backup.sh",
                "sudo chmod +x users_restore.sh",
@@ -725,23 +783,38 @@ resource "null_resource" "setup_instance" {
                "sudo chmod +x shutdown_clean.sh",
   
                "sudo mv virtual_domains /etc/postfix/virtual_domains",
-               "/usr/sbin/postmap /etc/postfix/virtual_domains", # generates virtual_domains.db
-               
+               "sudo /usr/sbin/postmap /etc/postfix/virtual_domains", # generates virtual_domains.db
+               "sudo /usr/sbin/postfix reload",
                #https://blog.tinned-software.net/setup-postfix-for-multiple-domains/
                #https://www.binarytides.com/install-spamassassin-with-postfix-dovecot/
                
-			   "sudo mv main.cf /etc/postfix/main.cf",
+			   "sudo mv main.cf /etc/postfix/main.cf",			   
+			   "sudo mv master.cf /etc/postfix/master.cf",
+			   "sudo mv spam_local.cf /etc/spamassassin/local.cf",
+			   
 			   "sudo mv 10-master.conf /etc/dovecot/conf.d/10-master.conf",
 			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",
-				   	
+			   "echo \"protocols = \$protocols lmtp\" | sudo tee /usr/share/dovecot/protocols.d/lmtp.protocol",
+			   "sudo sed -i \"s|#sieve_default =|sieve_default =|g\" /etc/dovecot/conf.d/90-sieve.conf",
+			
+			#TODO: these should be files but not sure how..	   	
+			# TODO: not looking omnipotent !!	build sh to run and erase from here.
+			#   "cat /etc/apache2/sites-enabled/000-default.conf | grep -c '<VirtualHost .:443>'",   	
 			   "cat default-ssl.conf | sudo tee -a /etc/apache2/sites-enabled/000-default.conf",
 			   "rm default-ssl.conf",	
  				    
-			    "sudo sed -i \"s|memory_limit = 128M|memory_limit = ${var.apache2_memory_limit}|g\" /etc/php/7.3/apache2/php.ini",
-				"sudo sed -i \"s|upload_max_filesize = 2M|upload_max_filesize = ${var.apache2_upload_max_filesize}|g\" /etc/php/7.3/apache2/php.ini",
-				"sudo sed -i \"s|post_max_size = 8M|post_max_size = ${var.apache2_post_max_size}|g\" /etc/php/7.3/apache2/php.ini",
-				"sudo sed -i \"s|max_execution_time = 30|max_execution_time = ${var.apache2_max_execution_time}|g\" /etc/php/7.3/apache2/php.ini",
-				"sudo sed -i \"s|;date.timezone = |date.timezone = ${var.apache2_date_timezone}|g\" /etc/php/7.3/apache2/php.ini",
+				
+				
+				"sudo sed -i \"s|output_buffering = 4096|output_buffering = Off|g\" /etc/php/${var.php_version}/cli/php.ini",   
+			    "sudo sed -i \"s|memory_limit = 128M|memory_limit = ${var.apache2_memory_limit}|g\" /etc/php/${var.php_version}/cli/php.ini",
+
+ 				"sudo sed -i \"s|output_buffering = 4096|output_buffering = Off|g\" /etc/php/${var.php_version}/apache2/php.ini",   
+			    "sudo sed -i \"s|memory_limit = 128M|memory_limit = ${var.apache2_memory_limit}|g\" /etc/php/${var.php_version}/apache2/php.ini",
+				"sudo sed -i \"s|upload_max_filesize = 2M|upload_max_filesize = ${var.apache2_upload_max_filesize}|g\" /etc/php/${var.php_version}/apache2/php.ini",
+				"sudo sed -i \"s|post_max_size = 8M|post_max_size = ${var.apache2_post_max_size}|g\" /etc/php/${var.php_version}/apache2/php.ini",
+				"sudo sed -i \"s|max_execution_time = 30|max_execution_time = ${var.apache2_max_execution_time}|g\" /etc/php/${var.php_version}/apache2/php.ini",
+				"sudo sed -i \"s|;date.timezone = |date.timezone = ${var.apache2_date_timezone}|g\" /etc/php/${var.php_version}/apache2/php.ini",
+				
 				"sudo sed -i \"s|/etc/ssl/certs/ssl-cert-snakeoil.pem|/etc/letsencrypt/live/${var.domain}/fullchain.pem|g\" /etc/apache2/sites-available/default-ssl.conf",
                 "sudo sed -i \"s|/etc/ssl/private/ssl-cert-snakeoil.key|/etc/letsencrypt/live/${var.domain}/privkey.pem|g\" /etc/apache2/sites-available/default-ssl.conf",
 			

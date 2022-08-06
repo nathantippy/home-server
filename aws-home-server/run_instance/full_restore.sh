@@ -38,15 +38,16 @@ sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/var --use-ssl --aws-access-k
 #mysql -h localhost -uroot -pnextcloud -e "CREATE DATABASE nextcloud CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
 #mysql -h localhost -uroot -pnextcloud -e "GRANT ALL PRIVILEGES on nextcloud.* to nextcloud@localhost"
 
+#TODO: may need to rerun this line if our password is not matching the db.
 cat /var/archive/nc_db_latest.sql | sudo -u postgres psql 
 #mysql -h localhost -unextcloud -pnextcloud nextcloud < /home/ubuntuusername/ncdb_1.sql
 
 
 sudo systemctl start apache2
 
-sudo -u www-data php /var/www/html/nextcloud/occ maintenance:data-fingerprint
 
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --off
+sudo -u www-data php /var/www/html/nextcloud/occ maintenance:data-fingerprint
 
 # ensure caches match what we have on the drive
 sudo -u www-data php /var/www/html/nextcloud/occ files:scan --all
