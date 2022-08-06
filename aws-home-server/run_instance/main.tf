@@ -796,6 +796,13 @@ resource "null_resource" "setup_instance" {
 			   "sudo mv 10-ssl.conf /etc/dovecot/conf.d/10-ssl.conf",
 			   "echo \"protocols = \$protocols lmtp\" | sudo tee /usr/share/dovecot/protocols.d/lmtp.protocol",
 			   "sudo sed -i \"s|#sieve_default =|sieve_default =|g\" /etc/dovecot/conf.d/90-sieve.conf",
+			   "sudo sed -i \"s|#mail_plugins = $mail_plugins|mail_plugins = $mail_plugins sieve|g\" /etc/dovecot/conf.d/20-lmtp.conf",
+			
+			# redirect postfix via dovecot for spam ailter
+			 "sudo sed -i \"s|#auth_username_format = %Lu|auth_username_format = %Ln|g\" /etc/dovecot/conf.d/10-auth.conf",  # remove @domainname to recipient - this solve lmtp error 'user not found
+			
+			
+			
 			
 			#TODO: these should be files but not sure how..	   	
 			# TODO: not looking omnipotent !!	build sh to run and erase from here.
