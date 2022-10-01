@@ -1,5 +1,7 @@
 #!/bin/sh
 
+#  sudo bash ./01-aws-init.sh   (you will need a one time use id and secret)
+
 ACCESS_KEY=${1:-"unknown"}
 SECRET_KEY=${2:-"unknown"}
 
