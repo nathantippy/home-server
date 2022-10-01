@@ -44,6 +44,7 @@ RUN mkdir -p "./terraform.d/plugin-cache"
 COPY ./preload.tf /
 RUN terraform init # using local unshared state, just to pre-download providers
 RUN ls ./terraform.d/plugin-cache
+RUN rm ./preload.tf	
 	
 #aws cli
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
