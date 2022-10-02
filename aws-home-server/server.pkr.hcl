@@ -168,6 +168,7 @@ build {
 					
 				############################################################################################################################
                 "apt-cache policy dovecot",
+		"apt-cache madison dovecot-core",
                 
                 "sudo apt-get install dovecot-core=${var.dovecot_version} -y", # grab specific version tested for the scripts
                 "sudo apt-get install dovecot-imapd=${var.dovecot_version} -y", # grab specific version tested for the scripts
