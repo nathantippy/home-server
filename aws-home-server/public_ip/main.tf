@@ -353,15 +353,6 @@ resource "aws_iam_user_policy" "inline-duplicati-policy" {
 EOF
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "home-backup" {
-  bucket = aws_s3_bucket.home-backup.bucket
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
 
 
 locals {
