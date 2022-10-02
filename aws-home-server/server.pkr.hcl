@@ -150,7 +150,7 @@ build {
 				# we setup the mail server late to ensure that /etc/resolv.conf is done changing so postfix can resolve dns entries
 	            # https://upcloud.com/community/tutorials/secure-postfix-using-lets-encrypt/                                
 				####################################################################################################################         
-                "apt-cache madison postfix",
+                
                 "sudo apt-get install certbot=1.12.0-2 -y",
 		        ## start of mail installer.   
 		        ## https://www.tecmint.com/install-postfix-mail-server-with-webmail-in-debian/
@@ -159,11 +159,12 @@ build {
                 "echo \"multi on\" >> temp.conf",
                 "sudo mv temp.conf /etc/host.conf",
                 "cat /etc/host.conf",                
-				"sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix=3.5.6-1+b1 -y",
+		"apt-cache madison postfix",
+		"sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix=3.5.13-0+deb11u1 -y", 
 											
-				"sudo mkdir -p /etc/postfix/sasl_passwd",
-				"sudo /usr/sbin/postmap /etc/postfix/sasl_passwd",
-				"sudo postconf -n",
+		"sudo mkdir -p /etc/postfix/sasl_passwd",
+		"sudo /usr/sbin/postmap /etc/postfix/sasl_passwd",
+		"sudo postconf -n",
 					
 				############################################################################################################################
                 "apt-cache policy dovecot",
