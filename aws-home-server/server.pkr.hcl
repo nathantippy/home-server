@@ -16,8 +16,12 @@ variable "role_arn" {
 }
 
 variable "dovecot_version" {
-	default = "1:2.3.13+dfsg1-2"
+	default = "1:2.3.13+dfsg1-2+deb11u1"
 }	
+
+variable "postfix_version" {
+	default = "3.5.13-0+deb11u1"
+}
 	
 # TODO: move the versions up here...
 
@@ -160,7 +164,7 @@ build {
                 "sudo mv temp.conf /etc/host.conf",
                 "cat /etc/host.conf",                
 		"apt-cache madison postfix",
-		"sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix=3.5.13-0+deb11u1 -y", 
+		"sudo DEBIAN_FRONTEND=noninteractive apt-get install postfix=${var.postfix_version} -y", 
 											
 		"sudo mkdir -p /etc/postfix/sasl_passwd",
 		"sudo /usr/sbin/postmap /etc/postfix/sasl_passwd",
