@@ -213,7 +213,8 @@ build {
                 "sudo apt-get install ./duplicati_2.0.6.3-1_all.deb -y",
                 
                 "apt-cache policy apache2",
-                "sudo apt-get install apache2=2.4.53-1~deb11u1 -y", 
+		"apt-cache madison apache2",
+                "sudo apt-get install apache2=2.4.54-1~deb11u1 -y", 
                 "sudo a2enmod rewrite",
 				"sudo a2enmod headers",
 				"sudo a2enmod env",
