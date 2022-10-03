@@ -740,6 +740,10 @@ resource "null_resource" "setup_instance" {
 	    }  
    }
    
+	
+  # copy and refresh on every run, each step must be omnipotent 
+  tiggers = { always = timestamp() } 
+	
   provisioner "remote-exec" {
     connection {
       type = "ssh"
@@ -749,8 +753,6 @@ resource "null_resource" "setup_instance" {
  
     }  
         
-    # copy and refresh on every run, each step must be omnipotent 
-    # tiggers = { always = timestamp() } # unsupported argument
     
     inline = [ "echo \"successful connection ssh admin@${data.terraform_remote_state.prev.outputs.ip} \"",
            
