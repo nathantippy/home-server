@@ -742,7 +742,7 @@ resource "null_resource" "setup_instance" {
    
 	
   # copy and refresh on every run, each step must be omnipotent 
-  tiggers = { always = timestamp() } 
+  triggers = { always = timestamp() } 
 	
   provisioner "remote-exec" {
     connection {
