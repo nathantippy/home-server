@@ -61,7 +61,7 @@ else
 		        echo "             A Record      *.${TF_VAR_domain}       ${STATIC_IP}   "
 			        
 		        echo "           Once updated it make take up to 3 hours for the DNS records to propagate."	
-		        echo "           After waiting the next step should be run with:   03-aws-home-server-build.sh"
+		        echo "           After waiting the next step should be run with:   03-aws-home-server-launch.sh"
 	        fi
             
         else
