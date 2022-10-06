@@ -31,7 +31,7 @@ myhostname = ${TF-DOMAIN}
 
 mydomain = ${TF-DOMAIN}
 
-smtpd_banner = ${TF-DOMAIN} #${TF-HOSTNAME} #TODO: test should be just domain?
+smtpd_banner = ${TF-DOMAIN}
 alias_maps = hash:/etc/aliases
 alias_database = hash:/etc/aliases
 
