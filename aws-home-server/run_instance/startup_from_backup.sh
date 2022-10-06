@@ -4,7 +4,7 @@
    
    
 echo "--- ensure drive is formatted and mounted ---"
-sudo bash ./startup_init.sh   
+sudo . ./startup_init.sh || exit $?  # must not continue on failure  
          
 echo "--- restore all "
 sudo bash ./full_restore.sh
@@ -14,6 +14,7 @@ bash ./startup_letsencrypt_refresh.sh
   
 sudo systemctl stop dovecot.service #must be stopped to start postfix
 # restart to pick up the certs!!
+sudo /usr/sbin/postmap /etc/postfix/virtual_domains
 sudo systemctl restart postfix
 sudo systemctl restart dovecot.service
 sudo service postgresql status  

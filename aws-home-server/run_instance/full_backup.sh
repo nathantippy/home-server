@@ -38,6 +38,7 @@ sudo duplicati-cli backup s3://${TF_BACKUP_BUCKET}/home "/mnt/second_drive/home"
 echo "backup /mnt/second_drive/var -------------------------------------------------------------"
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --on
 
+#this is both in var but also the admin home folder for two backups of this key data
 sudo mkdir -p /var/archive
 sudo -u postgres pg_dumpall | sudo tee /var/archive/nc_db_latest.sql > pg_dump.sql
 

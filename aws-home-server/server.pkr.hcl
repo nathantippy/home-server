@@ -212,6 +212,10 @@ build {
                 "wget https://updates.duplicati.com/beta/duplicati_2.0.6.3-1_all.deb",
                 "sudo apt-get install ./duplicati_2.0.6.3-1_all.deb -y",
                 
+                # no arm support as of 104 yet
+                #"wget https://github.com/duplicati/duplicati/releases/download/v2.0.6.104-2.0.6.104_canary_2022-06-15/duplicati_2.0.6.104-1_all.deb",
+                #"sudo apt-get install ./duplicati_2.0.6.104-1_all.deb -y",
+                
                 "apt-cache policy apache2",
 		"apt-cache madison apache2",
                 "sudo apt-get install apache2=2.4.54-1~deb11u1 -y", 

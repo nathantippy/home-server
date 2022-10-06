@@ -4,7 +4,7 @@
 ## /mnt/second_drive/etc_users
 ############################################################################
 echo "restore /mnt/second_drive/etc_users -------------------------------------------------"
-sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/etc_users --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
+sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/etc_users --overwrite=true --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
 
 sudo bash ./users_restore.sh
 
@@ -13,7 +13,7 @@ sudo bash ./users_restore.sh
 ############################################################################
 echo "restore /mnt/second_drive/home --------------------------------------------------------"
 # TODO: old .ssh may need to be kept for access!!! simple rename command?
-sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/home --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
+sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/home --overwrite=true --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
 
 ############################################################################
 ## /mnt/second_drive/var
@@ -23,8 +23,8 @@ echo "restore /mnt/second_drive/var --------------------------------------------
 sudo -u www-data php /var/www/html/nextcloud/occ maintenance:mode --on
 sudo systemctl stop apache2
 
-
-sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/var --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
+# we can add --version=<int> to restore a specific backup.
+sudo duplicati-cli restore s3://${TF_BACKUP_BUCKET}/var --overwrite=true --use-ssl --aws-access-key-id=${TF_USER_ID} --aws-secret-access-key=${TF_USER_SECRET} --passphrase=${TF_PASSWORD} --restore-permissions=true --symlink-policy=follow
 
 
 
